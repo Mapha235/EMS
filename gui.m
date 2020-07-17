@@ -242,24 +242,6 @@ function data = parse(file_path)
     end
 
     data = data.(var);
-    [nrow, ncol] = size(data);
-    img = data;
-    max = 0;
-    maxpos = 0;
-    for c=100:270 %100 bis 400
-        if img(c, 1) + img(c, 20) + img(c, 500) > max
-            max = img(c, 1) + img (c, 5) + img(c, 20);
-            maxpos = c;
-        end
-    end
-    max
-    maxpos
-    for c=1:ncol
-        mean = (img(maxpos-4, c) + img(maxpos+5, c))/2;
-        for i = 1:7
-            img(maxpos-3+i, c) = mean;
-        end
-    end
 
 % begin(Bildverarbeitung)
 function BScan = slice(bscan_count, dataset, number)    
