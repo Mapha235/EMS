@@ -1,3 +1,4 @@
+
 function varargout = gui(varargin)
 % GUI MATLAB code for gui.fig
 %      GUI, by itself, creates a new GUI or raises the existing
@@ -169,6 +170,31 @@ full_file = strcat(path, file);
 set(handles.plotpanel, 'Title', file);
 
 handles.dataset = parse(full_file, hObject, handles);
+[nrow, ncol] = size(handles.dataset);
+
+staticMax = 0;
+staticPos = 0;
+
+for c = 150:260
+    val = 0;
+    for d = 1:10
+        val = val + handles.dataset(c, d*40);
+    end
+    if val > staticMax
+        staticMax = val;
+        staticPos = c;
+    end
+end
+
+for c=1:ncol
+    mean = (handles.dataset(staticPos-4, c) + handles.dataset(staticPos+5, c))/2;
+    for i = 1:7
+        handles.dataset(staticPos-3+i, c) = mean;
+    end
+end
+
+
+
 handles.current_slice = slice(handles.bscan_count, handles.dataset, handles.bscan_index);
 guidata(hObject, handles);
 
@@ -193,7 +219,7 @@ function anwenden_Callback(hObject, eventdata, handles)
 
 display(handles.bscan_index);
 % katheter entfernen---------------------------------------------------
-handles.current_slice = remove_static_artefact(handles.current_slice);
+% handles.current_slice = remove_static_artefact(handles.current_slice);
 guidata(hObject, handles);
 % handles.current_slice = remove_catheter(handles.current_slice, [100, 512]);
 % guidata(hObject, handles);
@@ -256,22 +282,22 @@ function img = remove_catheter(BScan, range)
 
 function img = remove_static_artefact(BScan_with_catheter)
     [nrow, ncol] = size(BScan_with_catheter);
-    % removed_pixels = 512 - nrow;
-    % display(223 - removed_pixels)
-    % for c=1:ncol
-    %     mean = (BScan_with_catheter(220 - removed_pixels, c) + BScan_with_catheter(226 - removed_pixels, c))/2;
-    %     BScan_with_catheter(223 - removed_pixels, c) = mean;
-    %     BScan_with_catheter(224 - removed_pixels, c) = mean;
-    %     BScan_with_catheter(225 - removed_pixels, c) = mean;
-    % end
-    % img = BScan_with_catheter;
+    removed_pixels = 512 - nrow;
+    display(223 - removed_pixels)
+    for c=1:ncol
+        mean = (BScan_with_catheter(220 - removed_pixels, c) + BScan_with_catheter(226 - removed_pixels, c))/2;
+        BScan_with_catheter(223 - removed_pixels, c) = mean;
+        BScan_with_catheter(224 - removed_pixels, c) = mean;
+        BScan_with_catheter(225 - removed_pixels, c) = mean;
+    end
+    img = BScan_with_catheter;
 
     img = BScan_with_catheter;
     for c=1:ncol
-        mean = ( img(218,c)+ img(227,c) )/2;
-        for d=1:(226-220)
-            img(220+d,c) = mean;
-        end
+       mean = ( img(218,c)+ img(227,c) )/2;
+       for d=1:(226-220)
+           img(220+d,c) = mean;
+       end
     end
 
 
