@@ -22,7 +22,7 @@ function varargout = gui(varargin)
 
 % Edit the above text to modify the response to help gui
 
-% Last Modified by GUIDE v2.5 17-Jul-2020 10:22:11
+% Last Modified by GUIDE v2.5 17-Jul-2020 12:55:00
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -58,6 +58,7 @@ handles.bscan_count = 41;
 handles.bscan_index = 1;
 handles.current_slice = [];
 handles.dataset = [];
+handles.parameters = {};
 
 contents = [{}];
 for i = 1:handles.bscan_count
@@ -156,29 +157,6 @@ if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgr
 end
 
 
-
-function edit4_Callback(hObject, eventdata, handles)
-% hObject    handle to edit4 (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-% Hints: get(hObject,'String') returns contents of edit4 as text
-%        str2double(get(hObject,'String')) returns contents of edit4 as a double
-
-
-% --- Executes during object creation, after setting all properties.
-function edit4_CreateFcn(hObject, eventdata, handles)
-% hObject    handle to edit4 (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    empty - handles not created until after all CreateFcns called
-
-% Hint: edit controls usually have a white background on Windows.
-%       See ISPC and COMPUTER.
-if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
-    set(hObject,'BackgroundColor','white');
-end
-
-
 % --------------------------------------------------------------------
 function select_file_ClickedCallback(hObject, eventdata, handles)
 % hObject    handle to select_file (see GCBO)
@@ -190,7 +168,7 @@ full_file = strcat(path, file);
 % display(full_file)
 set(handles.plotpanel, 'Title', file);
 
-handles.dataset = parse(full_file);
+handles.dataset = parse(full_file, hObject, handles);
 handles.current_slice = slice(handles.bscan_count, handles.dataset, handles.bscan_index);
 guidata(hObject, handles);
 
@@ -224,13 +202,18 @@ imagesc(handles.current_slice);
 axes(handles.cartesian);
 % imagesc(polartocart(handles.dataset, handles.bscan_index, 14634));
 imagesc(polartocart(handles.current_slice));
-
+handles.parameters{end+1} = get(handles.parameter1,'String');
+handles.parameters{end+1} = get(handles.parameter2,'String');
+handles.parameters{end+1} = get(handles.parameter3,'String');
+display(handles.parameters);
 
 % --------------------------------------------------------------------
 
-function data = parse(file_path)
+function data = parse(file_path, hObject, handles)
     [path, name, ext] = fileparts(file_path);
 
+    cla(handles.polar);
+    cla(handles.cartesian);
     if strcmp(ext, '.mat')
         data = matfile(file_path);
         details = whos(data);
@@ -644,7 +627,7 @@ function update(hObject, eventdata, handles)
     state = check_requirements(handles);
     
     % title = sprintf('Slice Nr. %d', handles.bscan_index);
-    popup_index = get(handles.bscan_nr, 'Value')
+    popup_index = get(handles.bscan_nr, 'Value');
     set(handles.bscan_nr, 'Value', handles.bscan_index);
     drawnow;
     % set(handles.title, 'String', title);
@@ -683,12 +666,14 @@ function update(hObject, eventdata, handles)
         % Build_Kart = KantenKart(handles.current_slice, Build_Polar);
         % plot(Build_Kart(:, 2), Build_Kart(:, 1), 'r', 'LineWidth', 2);
     end
+    set(handles.diameter_text, 'Visible', 'off');
     if get(handles.boxInnenwand, 'Value')
         axes(handles.cartesian);
         [center, averageDist, lumen] = findOuterCircle(handles.current_slice);
         display(averageDist);
         % radius_mm = strcat('Radius:\t', 2str(averageDist*(5.19/1000)), 'mm');
         diameter_mm = sprintf('Durchmesser: %.6f mm', 2*averageDist*(5.19/1000));
+        set(handles.diameter_text, 'Visible', 'on');
         set(handles.diameter_text, 'String', diameter_mm);
         hold on;
         plot(lumen(:, 2), lumen(:, 1), 'g', 'LineWidth', 2);
@@ -780,3 +765,26 @@ function diameter_text_CreateFcn(hObject, eventdata, handles)
 % hObject    handle to diameter_text (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
+
+
+% --- Executes on selection change in listbox4.
+function listbox4_Callback(hObject, eventdata, handles)
+% hObject    handle to listbox4 (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: contents = cellstr(get(hObject,'String')) returns listbox4 contents as cell array
+%        contents{get(hObject,'Value')} returns selected item from listbox4
+
+
+% --- Executes during object creation, after setting all properties.
+function listbox4_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to listbox4 (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: listbox controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
