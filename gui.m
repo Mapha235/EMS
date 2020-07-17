@@ -1,3 +1,4 @@
+
 function varargout = gui(varargin)
 % GUI MATLAB code for gui.fig
 %      GUI, by itself, creates a new GUI or raises the existing
@@ -191,6 +192,31 @@ full_file = strcat(path, file);
 set(handles.plotpanel, 'Title', file);
 
 handles.dataset = parse(full_file);
+[nrow, ncol] = size(handles.dataset);
+
+staticMax = 0;
+staticPos = 0;
+
+for c = 150:260
+    val = 0;
+    for d = 1:10
+        val = val + handles.dataset(c, d*40);
+    end
+    if val > staticMax
+        staticMax = val;
+        staticPos = c
+    end
+end
+
+for c=1:ncol
+    mean = (handles.dataset(staticPos-4, c) + handles.dataset(staticPos+5, c))/2;
+    for i = 1:7
+        handles.dataset(staticPos-3+i, c) = mean;
+    end
+end
+
+
+
 handles.current_slice = slice(handles.bscan_count, handles.dataset, handles.bscan_index);
 guidata(hObject, handles);
 
@@ -272,7 +298,7 @@ function img = remove_catheter(BScan, range)
     img = BScan(range(1):range(2), :);
 
 function img = remove_static_artefact(BScan_with_catheter)
-    [nrow, ncol] = size(BScan_with_catheter);
+    %[nrow, ncol] = size(BScan_with_catheter);
     % removed_pixels = 512 - nrow;
     % display(223 - removed_pixels)
     % for c=1:ncol
@@ -283,13 +309,13 @@ function img = remove_static_artefact(BScan_with_catheter)
     % end
     % img = BScan_with_catheter;
 
-    img = BScan_with_catheter;
-    for c=1:ncol
-        mean = ( img(218,c)+ img(227,c) )/2;
-        for d=1:(226-220)
-            img(220+d,c) = mean;
-        end
-    end
+    %img = BScan_with_catheter;
+    %for c=1:ncol
+    %    mean = ( img(218,c)+ img(227,c) )/2;
+    %    for d=1:(226-220)
+    %        img(220+d,c) = mean;
+    %    end
+    %end
 
 
 
