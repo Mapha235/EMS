@@ -23,7 +23,7 @@ function varargout = gui(varargin)
 
 % Edit the above text to modify the response to help gui
 
-% Last Modified by GUIDE v2.5 17-Jul-2020 12:55:00
+% Last Modified by GUIDE v2.5 19-Jul-2020 20:10:49
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -55,18 +55,14 @@ function gui_OpeningFcn(hObject, eventdata, handles, varargin)
 
 % Choose default command line output for gui
 handles.output = hObject;
-handles.bscan_count = 41;
+handles.bscan_count = 0;
 handles.bscan_index = 1;
 handles.current_slice = [];
 handles.dataset = [];
 handles.parameters = {};
+handles.longitudinal = [];
+handles.progress = [{}];
 
-contents = [{}];
-for i = 1:handles.bscan_count
-    temp_index = int2str(mod(i, 48));
-    contents(i) = {temp_index};
-end
-set(handles.bscan_nr, 'String', contents);
 if isempty(handles.dataset)
     set(handles.bscan_nr, 'visible', 'off');
 end
@@ -170,8 +166,12 @@ full_file = strcat(path, file);
 set(handles.plotpanel, 'Title', file);
 
 handles.dataset = parse(full_file, hObject, handles);
+handles.bscan_count = numberofAScans(handles.dataset);
 [nrow, ncol] = size(handles.dataset);
+handles.progress(end+1) = {'Datensatz geladen.'};
+set(handles.progress_listbox, 'String', handles.progress);
 
+% remove static artefact
 staticMax = 0;
 staticPos = 0;
 
@@ -193,22 +193,46 @@ for c=1:ncol
     end
 end
 
+handles.progress(end+1) = {'Statisches Artefakt entfernt.'};
+set(handles.progress_listbox, 'String', handles.progress);
+
+contents = [{}];
+for i = 1:handles.bscan_count
+    % temp_index = int2str(mod(i, 48));
+    temp_index = int2str(i);
+    contents(i) = {temp_index};
+end
+set(handles.bscan_nr, 'String', contents);
+% handles.longitudinal(1:nrow, 1:(ncol*3)) = 255;
+% handles.longitudinal = 255 * ones(nrow, ncol*3, 'uint8');
+% axes(handles.sideview);
+% axis([1 ncol*3 0 nrow]);
+
 
 
 handles.current_slice = slice(handles.bscan_count, handles.dataset, handles.bscan_index);
-guidata(hObject, handles);
+
+handles.progress(end+1) = {strcat('Slice Nr.', int2str(handles.bscan_index))};
+handles.progress(end+1) = {'------------------------------------------------------------'};
+set(handles.progress_listbox, 'String',handles.progress);
 
 if ~isempty(handles.dataset)
     set(handles.bscan_nr, 'visible', 'on');
 end
 
-% colormap(gray);
-display(handles.bscan_index)
 axes(handles.polar);
 imagesc(handles.current_slice);
 axes(handles.cartesian);
 % imagesc(polartocart(handles.dataset, handles.bscan_index, 14634));
 imagesc(polartocart(handles.current_slice));
+
+periode = floor(ncol / handles.bscan_count);
+axes(handles.sideview);
+for i = 1:10
+    handles.longitudinal = [handles.longitudinal sideView(slice(handles.bscan_count, handles.dataset, i), periode)];
+end
+imagesc(handles.longitudinal);
+guidata(hObject, handles);
 
 
 % --- Executes on button press in pushbutton3.
@@ -217,9 +241,8 @@ function anwenden_Callback(hObject, eventdata, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-display(handles.bscan_index);
 % katheter entfernen---------------------------------------------------
-% handles.current_slice = remove_static_artefact(handles.current_slice);
+handles.current_slice = remove_static_artefact(handles.current_slice);
 guidata(hObject, handles);
 % handles.current_slice = remove_catheter(handles.current_slice, [100, 512]);
 % guidata(hObject, handles);
@@ -252,6 +275,26 @@ function data = parse(file_path, hObject, handles)
 
     data = data.(var);
 
+function numberOfScans = numberofAScans(dataset)
+    % dataset = load('phantom1_1_2.mat');
+    % dataset = dataset.mscancut;
+    [rows, values] = size(dataset);
+
+    numberOfScans = 0;
+    c = 1;
+    maxtresh = 25250;   %26000
+    while c < values-100
+        treshhold = 0;
+        for d = 1:100
+            treshhold = treshhold + dataset(49, c+d);
+        end
+        if treshhold > maxtresh
+            numberOfScans = numberOfScans + 1;
+            c = c+1000;
+        end
+        c = c+1;
+    end
+
 % begin(Bildverarbeitung)
 function BScan = slice(bscan_count, dataset, number)    
     % dataset = dataset(100:512,:);
@@ -264,6 +307,7 @@ function BScan = slice(bscan_count, dataset, number)
     % end
 
     periode = floor(ncol / bscan_count);
+
 
     curve_nr = periode * number;
     for i = 1:nrow
@@ -542,6 +586,33 @@ function [center,averageDist, lumen] =findOuterCircle(BScan)
 % end-------------------------------Kante einzeichnen-------------------------------------
 % function = show(hObject, eventdata, handles)
 
+% begin-------------------------------Längstverlauf-------------------------------------
+function [M] =sideView(Scan,numberOfAScans)
+    [row,col] = size(Scan);
+    
+    lengthOFAScan = floor(col/numberOfAScans);
+    
+    M=zeros(1,1);
+    pointer=1;
+    for x=1:numberOfAScans
+        l = lengthOFAScan;
+        
+        for c=1:row
+            M(c+row,x*3-2)=Scan(c,pointer+floor(l*1/4));
+            M(c+row,x*3-1)=Scan(c,pointer+floor(l*1/4));
+            M(c+row,x*3)=Scan(c,pointer+floor(l*1/4));
+            
+            M(row-c+1,x*3-2)=Scan(c,pointer+ floor(l*3/4));
+            M(row-c+1,x*3-1)=Scan(c,pointer+ floor(l*3/4));
+            M(row-c+1,x*3)=Scan(c,pointer+ floor(l*3/4));
+        end
+        
+        pointer=pointer+l;
+    end
+        %M = imsharpen(M)  
+    M = ordfilt2(M,7,ones(5,2));
+
+% end---------------------------------Längstverlauf-------------------------------------
 
 % --- Executes on button press in decrement.
 function decrement_Callback(hObject, eventdata, handles)
@@ -605,7 +676,7 @@ function bscan_nr_Callback(hObject, eventdata, handles)
 
 contents = cellstr(get(hObject,'String'));
 
-handles.bscan_index = mod(str2num(contents{get(hObject,'Value')}), 48);
+handles.bscan_index = str2num(contents{get(hObject,'Value')});
 display(handles.bscan_index);
 update(hObject, eventdata, handles);
 
@@ -666,7 +737,7 @@ function update(hObject, eventdata, handles)
         colormap default;
     end
     if get(handles.boxStatArt, 'Value')
-        handles.current_slice = remove_static_artefact(handles.current_slice);
+        % handles.current_slice = remove_static_artefact(handles.current_slice);
     end
     if get(handles.boxRauschen, 'Value')
         % handles.current_slice = medfilt2(handles.current_slice, [3, 3]);
@@ -793,19 +864,19 @@ function diameter_text_CreateFcn(hObject, eventdata, handles)
 % handles    empty - handles not created until after all CreateFcns called
 
 
-% --- Executes on selection change in listbox4.
-function listbox4_Callback(hObject, eventdata, handles)
-% hObject    handle to listbox4 (see GCBO)
+% --- Executes on selection change in progress_listbox.
+function progress_listbox_Callback(hObject, eventdata, handles)
+% hObject    handle to progress_listbox (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-% Hints: contents = cellstr(get(hObject,'String')) returns listbox4 contents as cell array
-%        contents{get(hObject,'Value')} returns selected item from listbox4
+% Hints: contents = cellstr(get(hObject,'String')) returns progress_listbox contents as cell array
+%        contents{get(hObject,'Value')} returns selected item from progress_listbox
 
 
 % --- Executes during object creation, after setting all properties.
-function listbox4_CreateFcn(hObject, eventdata, handles)
-% hObject    handle to listbox4 (see GCBO)
+function progress_listbox_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to progress_listbox (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
 
