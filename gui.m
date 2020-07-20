@@ -1,31 +1,5 @@
 
 function varargout = gui(varargin)
-% GUI MATLAB code for gui.fig
-%      GUI, by itself, creates a new GUI or raises the existing
-%      singleton*.
-%
-%      H = GUI returns the handle to a new GUI or the handle to
-%      the existing singleton*.
-%
-%      GUI('CALLBACK',hObject,eventData,handles,...) calls the local
-%      function named CALLBACK in GUI.M with the given input arguments.
-%
-%      GUI('Property','Value',...) creates a new GUI or raises the
-%      existing singleton*.  Starting from the left, property value pairs are
-%      applied to the GUI before gui_OpeningFcn gets called.  An
-%      unrecognized property name or invalid value makes property application
-%      stop.  All inputs are passed to gui_OpeningFcn via varargin.
-%
-%      *See GUI Options on GUIDE's Tools menu.  Choose "GUI allows only one
-%      instance to run (singleton)".
-%
-% See also: GUIDE, GUIDATA, GUIHANDLES
-
-% Edit the above text to modify the response to help gui
-
-% Last Modified by GUIDE v2.5 19-Jul-2020 20:10:49
-
-% Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
 gui_State = struct('gui_Name',       mfilename, ...
                    'gui_Singleton',  gui_Singleton, ...
@@ -47,13 +21,7 @@ end
 % INIT
 % --- Executes just before gui is made visible.
 function gui_OpeningFcn(hObject, eventdata, handles, varargin)
-% This function has no output args, see OutputFcn.
-% hObject    handle to figure
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-% varargin   command line arguments to gui (see VARARGIN)
 
-% Choose default command line output for gui
 handles.output = hObject;
 handles.bscan_count = 0;
 handles.bscan_index = 1;
@@ -61,7 +29,9 @@ handles.current_slice = [];
 handles.dataset = [];
 handles.parameters = {};
 handles.longitudinal = [];
-handles.progress = [{}];
+
+% Contains information whether a task has been executed already or not. Avoids redundant execution of tasks.
+handles.already_executed = zeros(5,1);
 
 if isempty(handles.dataset)
     set(handles.bscan_nr, 'visible', 'off');
@@ -76,79 +46,69 @@ guidata(hObject, handles);
 
 % --- Outputs from this function are returned to the command line.
 function varargout = gui_OutputFcn(hObject, eventdata, handles) 
-% varargout  cell array for returning output args (see VARARGOUT);
-% hObject    handle to figure
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-% Get default command line output from handles structure
 varargout{1} = handles.output;
 
 
 
-function parameter1_Callback(hObject, eventdata, handles)
-% hObject    handle to parameter1 (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-% Hints: get(hObject,'String') returns contents of parameter1 as text
-%        str2double(get(hObject,'String')) returns contents of parameter1 as a double
+function catheter_position_edit_Callback(hObject, eventdata, handles)
+    % handles.parameters = {};
+    temp = str2double(get(handles.catheter_position_edit,'String'));
+    if isnan(temp)
+        outputMessage(hObject, handles, "Fehler: Parameter muss eine Zahl sein.", 0)
+    end
+    % outputMessage(hObject, handles, sprintf("- \tKatheterposition \n \t geändert zu: %d",handles.parameters{1}), 0);
+    display(handles.parameters);
+    guidata(hObject, handles);
 
 
 % --- Executes during object creation, after setting all properties.
-function parameter1_CreateFcn(hObject, eventdata, handles)
-% hObject    handle to parameter1 (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    empty - handles not created until after all CreateFcns called
-
-% Hint: edit controls usually have a white background on Windows.
-%       See ISPC and COMPUTER.
+function catheter_position_edit_CreateFcn(hObject, eventdata, handles)
 if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
     set(hObject,'BackgroundColor','white');
 end
 
 
 
-function parameter2_Callback(hObject, eventdata, handles)
-% hObject    handle to parameter2 (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-% Hints: get(hObject,'String') returns contents of parameter2 as text
-%        str2double(get(hObject,'String')) returns contents of parameter2 as a double
+function bscan_count_edit_Callback(hObject, eventdata, handles)
+    % handles.parameters
+    temp = str2double(get(handles.bscan_count_edit,'String'));
+    if isnan(temp)
+        outputMessage(hObject, handles, "Fehler: Parameter muss eine Zahl sein.", 0)
+    else
+        % outputMessage(hObject, handles, sprintf("- \tAnzahl an Scans \n \t geändert zu: %d", handles.parameters{2}), 0);
+        [nrow ncol] = size(handles.dataset);
+        set(handles.bscan_width_edit, 'String', int2str(floor(ncol / temp)));
+    end
+    display(handles.parameters);
+    guidata(hObject, handles);
+    
 
 
 % --- Executes during object creation, after setting all properties.
-function parameter2_CreateFcn(hObject, eventdata, handles)
-% hObject    handle to parameter2 (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    empty - handles not created until after all CreateFcns called
-
-% Hint: edit controls usually have a white background on Windows.
-%       See ISPC and COMPUTER.
+function bscan_count_edit_CreateFcn(hObject, eventdata, handles)
 if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
     set(hObject,'BackgroundColor','white');
 end
 
 
 
-function parameter3_Callback(hObject, eventdata, handles)
-% hObject    handle to parameter3 (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-% Hints: get(hObject,'String') returns contents of parameter3 as text
-%        str2double(get(hObject,'String')) returns contents of parameter3 as a double
+function bscan_width_edit_Callback(hObject, eventdata, handles)
+    % handles.parameters
+    temp = str2double(get(handles.bscan_width_edit,'String'));
+    if isnan(temp)
+        outputMessage(hObject, handles, "Fehler: Parameter muss eine Zahl sein.", 0)
+    else
+        % outputMessage(hObject, handles, sprintf("- \tAnzahl A-Scans pro Scan \n \t geändert zu: %d", handles.parameters{3}), 0);
+        [nrow ncol] = size(handles.dataset);
+        set(handles.bscan_count_edit, 'String', int2str(floor(ncol / temp)));
+        % set(handles.parameters{2}, (floor(ncol / handles.parameters{3})));
+    end
+    display(handles.parameters);
+    guidata(hObject, handles);
 
 
 % --- Executes during object creation, after setting all properties.
-function parameter3_CreateFcn(hObject, eventdata, handles)
-% hObject    handle to parameter3 (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    empty - handles not created until after all CreateFcns called
-
-% Hint: edit controls usually have a white background on Windows.
-%       See ISPC and COMPUTER.
+function bscan_width_edit_CreateFcn(hObject, eventdata, handles)
 if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
     set(hObject,'BackgroundColor','white');
 end
@@ -156,113 +116,150 @@ end
 
 % --------------------------------------------------------------------
 function select_file_ClickedCallback(hObject, eventdata, handles)
-% hObject    handle to select_file (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-[file, path] = uigetfile('*.?at');
-full_file = strcat(path, file);
-% [path, name, ext] = fileparts(file);
-% display(full_file)
-set(handles.plotpanel, 'Title', file);
 
-handles.dataset = parse(full_file, hObject, handles);
-handles.bscan_count = numberofAScans(handles.dataset);
-[nrow, ncol] = size(handles.dataset);
-handles.progress(end+1) = {'Datensatz geladen.'};
-set(handles.progress_listbox, 'String', handles.progress);
+    % clear all axes
+    cla(handles.polar, 'reset');
+    cla(handles.cartesian, 'reset');
+    cla(handles.sideview, 'reset');
 
-% remove static artefact
-staticMax = 0;
-staticPos = 0;
+    [file, path] = uigetfile('*.?at');
+    full_file = strcat(path, file);
+    % [path, name, ext] = fileparts(file);
+    % display(full_file)
+    set(handles.plotpanel, 'Title', file);
 
-for c = 150:260
-    val = 0;
-    for d = 1:10
-        val = val + handles.dataset(c, d*40);
+    handles.dataset = parse(full_file, hObject, handles);
+    handles.bscan_count = numberofAScans(handles.dataset);
+    [nrow, ncol] = size(handles.dataset);
+
+    message = {'------------------------------------'};
+    message{end+1} = sprintf("%s geladen.", file);
+    set(handles.progress_listbox, 'String', message);
+
+
+    % remove static artefact
+    staticMax = 0;
+    staticPos = 0;
+
+    for c = 150:260
+        val = 0;
+        for d = 1:10
+            val = val + handles.dataset(c, d*40);
+        end
+        if val > staticMax
+            staticMax = val;
+            staticPos = c;
+        end
     end
-    if val > staticMax
-        staticMax = val;
-        staticPos = c;
+
+    for c=1:ncol
+        mean = (handles.dataset(staticPos-4, c) + handles.dataset(staticPos+5, c))/2;
+        for i = 1:7
+            handles.dataset(staticPos-3+i, c) = mean;
+        end
     end
-end
 
-for c=1:ncol
-    mean = (handles.dataset(staticPos-4, c) + handles.dataset(staticPos+5, c))/2;
-    for i = 1:7
-        handles.dataset(staticPos-3+i, c) = mean;
+    message{end+1} = 'Statisches Artefakt entfernt.';
+    set(handles.progress_listbox, 'String', message);
+    
+    
+
+    % insert bscan_indices for selection to popup menu
+    content = setPopupContent(handles.bscan_count);
+    set(handles.bscan_nr, 'String', content);
+
+    periode = floor(ncol / handles.bscan_count);
+
+    % set initial/default parameters
+    set(handles.catheter_position_edit, 'String', int2str(100));
+    handles.parameters{1} = 100;
+    set(handles.bscan_count_edit, 'String', int2str(handles.bscan_count));
+    handles.parameters{2} = handles.bscan_count;
+    set(handles.bscan_width_edit, 'String', int2str(periode));
+    handles.parameters{3} = periode;
+
+    display(handles.parameters);
+
+    handles.current_slice = slice(handles.bscan_count, handles.dataset, handles.bscan_index);
+
+    outputMessage(hObject, handles, '', 1);
+    
+
+    if ~isempty(handles.dataset)
+        set(handles.bscan_nr, 'visible', 'on');
     end
-end
 
-handles.progress(end+1) = {'Statisches Artefakt entfernt.'};
-set(handles.progress_listbox, 'String', handles.progress);
+    axes(handles.polar);
+    imagesc(handles.current_slice);
+    axes(handles.cartesian);
+    % imagesc(polartocart(handles.dataset, handles.bscan_index, 14634));
+    imagesc(polartocart(handles.current_slice));
 
-contents = [{}];
-for i = 1:handles.bscan_count
-    % temp_index = int2str(mod(i, 48));
-    temp_index = int2str(i);
-    contents(i) = {temp_index};
-end
-set(handles.bscan_nr, 'String', contents);
-% handles.longitudinal(1:nrow, 1:(ncol*3)) = 255;
-% handles.longitudinal = 255 * ones(nrow, ncol*3, 'uint8');
-% axes(handles.sideview);
-% axis([1 ncol*3 0 nrow]);
+    axes(handles.sideview);
+    % for i = 1:10
+    %     handles.longitudinal = [handles.longitudinal sideView(slice(handles.bscan_count, handles.dataset, i), periode)];
+    % end
+    imagesc(handles.longitudinal);
+    guidata(hObject, handles);
 
+function [] = outputMessage(hObject, handles, msg, new)
+    current_msg = get(handles.progress_listbox,'String');
+    if new
+        current_msg{end+1} = '------------------------------------';
+        current_msg{end+1} = sprintf("- Slice Nr.: %d / %d", handles.bscan_index, handles.bscan_count);
+    else
+        current_msg{end+1} = "- " + msg;
+    end
+        % current_msg(end+1) = {strcat('- Slice Nr.', int2str(handles.bscan_index), '/', int2str(handles.bscan_count))};
+    set(handles.progress_listbox, 'String', current_msg);
+    set(handles.progress_listbox, 'Value', numel(get(handles.progress_listbox,'String')));
 
-
-handles.current_slice = slice(handles.bscan_count, handles.dataset, handles.bscan_index);
-
-handles.progress(end+1) = {strcat('Slice Nr.', int2str(handles.bscan_index))};
-handles.progress(end+1) = {'------------------------------------------------------------'};
-set(handles.progress_listbox, 'String',handles.progress);
-
-if ~isempty(handles.dataset)
-    set(handles.bscan_nr, 'visible', 'on');
-end
-
-axes(handles.polar);
-imagesc(handles.current_slice);
-axes(handles.cartesian);
-% imagesc(polartocart(handles.dataset, handles.bscan_index, 14634));
-imagesc(polartocart(handles.current_slice));
-
-periode = floor(ncol / handles.bscan_count);
-axes(handles.sideview);
-for i = 1:10
-    handles.longitudinal = [handles.longitudinal sideView(slice(handles.bscan_count, handles.dataset, i), periode)];
-end
-imagesc(handles.longitudinal);
-guidata(hObject, handles);
-
+function contents = setPopupContent(bscan_count)
+    contents = [{}];
+    for i = 1:bscan_count
+        % temp_index = int2str(mod(i, 48));
+        temp_index = int2str(i);
+        contents(i) = {temp_index};
+    end
 
 % --- Executes on button press in pushbutton3.
-function anwenden_Callback(hObject, eventdata, handles)
-% hObject    handle to pushbutton3 (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
+function anwenden_options_Callback(hObject, eventdata, handles)
 
-% katheter entfernen---------------------------------------------------
-handles.current_slice = remove_static_artefact(handles.current_slice);
-guidata(hObject, handles);
-% handles.current_slice = remove_catheter(handles.current_slice, [100, 512]);
-% guidata(hObject, handles);
-axes(handles.polar);
-imagesc(handles.current_slice);
-axes(handles.cartesian);
-% imagesc(polartocart(handles.dataset, handles.bscan_index, 14634));
-imagesc(polartocart(handles.current_slice));
-handles.parameters{end+1} = get(handles.parameter1,'String');
-handles.parameters{end+1} = get(handles.parameter2,'String');
-handles.parameters{end+1} = get(handles.parameter3,'String');
-display(handles.parameters);
+    % katheter entfernen---------------------------------------------------
+    handles.current_slice = remove_static_artefact(handles.current_slice);
+
+    % Änderungen der Parameter übernehmen
+    handles.parameters{1} = str2double(get(handles.catheter_position_edit, 'String'));
+    handles.parameters{2} = str2double(get(handles.bscan_count_edit, 'String'));
+    handles.parameters{3} = str2double(get(handles.bscan_width_edit, 'String'));
+    handles.bscan_count = handles.parameters{2};
+    display(handles.parameters);
+    
+    
+    content = setPopupContent(handles.bscan_count);
+
+
+    set(handles.bscan_nr, 'String', content);
+    % handles.current_slice = remove_catheter(handles.current_slice, [100, 512]);
+    % guidata(hObject, handles);
+    axes(handles.polar);
+    imagesc(handles.current_slice);
+    axes(handles.cartesian);
+    % imagesc(polartocart(handles.dataset, handles.bscan_index, 14634));
+    imagesc(polartocart(handles.current_slice));
+    % display(handles.parameters);
+    guidata(hObject, handles);
+
 
 % --------------------------------------------------------------------
 
 function data = parse(file_path, hObject, handles)
     [path, name, ext] = fileparts(file_path);
 
-    cla(handles.polar);
-    cla(handles.cartesian);
+    % cla(handles.polar);
+    % cla(handles.cartesian);
+    % cla(handles.sideview);
+
     if strcmp(ext, '.mat')
         data = matfile(file_path);
         details = whos(data);
@@ -294,6 +291,8 @@ function numberOfScans = numberofAScans(dataset)
         end
         c = c+1;
     end
+
+% function = setParameters()
 
 % begin(Bildverarbeitung)
 function BScan = slice(bscan_count, dataset, number)    
@@ -406,18 +405,18 @@ function [X, Y] = mesh_polartocart(BScan)
 % --------------------------------------------------------------------
 
 % begin-------------------------------Kante einzeichnen-------------------------------------
-function value = Kanten_detektion_Polar(Bscan)
+function value = Kanten_detektion_Polar(Bscan,tryT)
     M = Bscan;
     M = medfilt2(M,[3,3]);
     [row,col] = size(M);
     value=zeros(col,1);
     M = mat2gray(mat2gray(imguidedfilter(imadjust(M))),[0.51,1]);
-    k=1;
+
     for i = 1:col
-        for j=100:row
+        for j=tryT:row
             if M(j,i)>0
                 value(i)=j;
-                k=k+1;
+                
                 break;
             end
         end
@@ -432,47 +431,22 @@ function value = Kanten_detektion_Polar(Bscan)
             end
         end
     end
-    value = medfilt1(value,row/2);
-    m = (row)/(col);
-    for i=2:col-1
-        if i+2<=col
-            if abs(value(i)-value(i+1))>8 && abs(value(i)-value(i+2))>8
-                if value(i)>value(i+1)
-                    value(i+1) = (value(i) - m);
-                else
-                    value(i+1) = (value(i) + m);
-                end
-            elseif abs(value(i)-value(i+1))>8 && abs(value(i)-value(i+2))<8
-                value(i+1)= floor(value(i));
-            end
-        end
-    end
-    value = floor(medfilt1(value,floor(row/4)));
-    if value(col)==0 || abs(value(col)-value(col-1))>10
-        i=col-1;
-        while i>1
-            if value(i)>0
-                value(col)=value(i);
-                break;
-            end
-            i=i-1;
-        end
-    end
-    i=col-1;
-    while i>1
-        if value(i)==0
-            value(i)=value(i+1);
-        end
-        if abs(value(i)-value(i-1))>15
-            
-            value(i-1)=value(i);
-        end
-        i=i-1;
-    end
+    value = medfilt1(value,floor(row/3));
+
     value = floor((value+0.5));
-    % imagesc(M);
-    % hold on;
-    % plot(1:col,value,'r','LineWidth',2)
+    k=floor(col/10);
+    while k>0
+        if value(k)<=tryT || abs(value(k)-value(k+1))>25
+            value(k)=value(k+1);
+        end
+        k=k-1;
+    end
+    k=floor(col/10);
+    for i=col-k:col
+        if value(k)<=tryT || abs(value(k)-value(k-1))>25
+            value(k)=value(k-1);
+        end
+    end
 
 
 function abtasten = KantenKart(BScan, Sample_points)
@@ -616,9 +590,6 @@ function [M] =sideView(Scan,numberOfAScans)
 
 % --- Executes on button press in decrement.
 function decrement_Callback(hObject, eventdata, handles)
-% hObject    handle to decrement (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
 % handles.bscan_index = (handles.bscan_index - 1);
 % current_index = get(hObject, 'index');
 % current_index = current_index - 1;
@@ -629,9 +600,6 @@ update(hObject,eventdata,handles);
 
 % --- Executes on button press in increment.
 function increment_Callback(hObject, eventdata, handles)
-% hObject    handle to increment (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
 % current_index = get(hObject, 'index');
 % current_index = current_index + 1;
 % set(hObject, 'index', current_index);
@@ -641,36 +609,21 @@ update(hObject,eventdata,handles);
 
 % --- Executes during object creation, after setting all properties.
 function cartesian_CreateFcn(hObject, eventdata, handles)
-% hObject    handle to cartesian (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    empty - handles not created until after all CreateFcns called
 
 % Hint: place code in OpeningFcn to populate cartesian
 
 % --- Executes on button press in boxStatArt.
 function boxStatArt_Callback(hObject, eventdata, handles)
-% hObject    handle to boxStatArt (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
 % Hint: get(hObject,'Value') returns toggle state of boxStatArt
 
 
 % --- Executes on button press in checkbox7.
 function boxInnenwand_Callback(hObject, eventdata, handles)
-% hObject    handle to checkbox7 (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
 % Hint: get(hObject,'Value') returns toggle state of checkbox7
 
 
 % --- Executes on selection change in bscan_nr.
 function bscan_nr_Callback(hObject, eventdata, handles)
-% hObject    handle to bscan_nr (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
 % Hints: contents = cellstr(get(hObject,'String')) returns bscan_nr contents as cell array
 %        contents{get(hObject,'Value')} returns selected item from bscan_nr
 
@@ -682,10 +635,6 @@ update(hObject, eventdata, handles);
 
 % --- Executes during object creation, after setting all properties.
 function bscan_nr_CreateFcn(hObject, eventdata, handles)
-% hObject    handle to bscan_nr (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    empty - handles not created until after all CreateFcns called
-
 % Hint: popupmenu controls usually have a white background on Windows.
 %       See ISPC and COMPUTER.
 if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
@@ -695,9 +644,7 @@ end
 
 % --- Executes on button press in pushbutton6.
 function pushbutton6_Callback(hObject, eventdata, handles)
-% hObject    handle to pushbutton6 (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
+
 
 function states = check_requirements(handles)
     states = zeros(5, 1);
@@ -723,9 +670,11 @@ function update(hObject, eventdata, handles)
     
     state = check_requirements(handles);
     
+    
     % title = sprintf('Slice Nr. %d', handles.bscan_index);
     popup_index = get(handles.bscan_nr, 'Value');
     set(handles.bscan_nr, 'Value', handles.bscan_index);
+    outputMessage(hObject, handles, '', 1);
     drawnow;
     % set(handles.title, 'String', title);
     handles.current_slice = slice(handles.bscan_count, handles.dataset, handles.bscan_index);
@@ -751,11 +700,12 @@ function update(hObject, eventdata, handles)
     imagesc(handles.current_slice);
     axes(handles.cartesian);
     imagesc(polartocart(handles.current_slice));
+    drawnow; 
 
     if get(handles.boxKantenerkennung, 'Value')
         axes(handles.polar);
         hold on;
-        Build_Polar = Kanten_detektion_Polar(handles.current_slice);
+        Build_Polar = Kanten_detektion_Polar(handles.current_slice, handles.parameters{1});
         [nrow, ncol] = size(Build_Polar);
         plot(1:nrow, Build_Polar, 'g', 'LineWidth', 2);
         % axes(handles.cartesian);
@@ -784,34 +734,19 @@ function update(hObject, eventdata, handles)
 
 % --- Executes during object creation, after setting all properties.
 function plotpanel_CreateFcn(hObject, eventdata, handles)
-% hObject    handle to plotpanel (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    empty - handles not created until after all CreateFcns called
-
 
 % --- If Enable == 'on', executes on mouse press in 5 pixel border.
 % --- Otherwise, executes on mouse press in 5 pixel border or over textGraustufen.
 function textGraustufen_ButtonDownFcn(hObject, eventdata, handles)
-% hObject    handle to textGraustufen (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
 set(handles.boxGraustufen, 'Value', ~get(handles.boxGraustufen, 'Value'));
 
 
 % --- Executes on button press in boxGraustufen.
 function boxGraustufen_Callback(hObject, eventdata, handles)
-% hObject    handle to boxGraustufen (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
- 
 % Hint: get(hObject,'Value') returns toggle state of boxGraustufen
 
 % --- Executes on button press in boxKantenerkennung.
 function boxKantenerkennung_Callback(hObject, eventdata, handles)
-% hObject    handle to boxKantenerkennung (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
 % Hint: get(hObject,'Value') returns toggle state of boxKantenerkennung
 display(get(hObject, 'Value'));
 if get(hObject, 'Value')
@@ -830,9 +765,6 @@ end
 % --- If Enable == 'on', executes on mouse press in 5 pixel border.
 % --- Otherwise, executes on mouse press in 5 pixel border or over textKantenerkennung.
 function textKantenerkennung_ButtonDownFcn(hObject, eventdata, handles)
-% hObject    handle to textKantenerkennung (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
 value = ~get(handles.boxKantenerkennung, 'Value');
 display(value);
 set(handles.boxKantenerkennung, 'value', value);
@@ -842,46 +774,33 @@ boxKantenerkennung_Callback(hObject, eventdata, handles);
 
 % --- Executes on button press in boxRauschen.
 function boxRauschen_Callback(hObject, eventdata, handles)
-% hObject    handle to boxRauschen (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
 % Hint: get(hObject,'Value') returns toggle state of boxRauschen
 
 
 % --- If Enable == 'on', executes on mouse press in 5 pixel border.
 % --- Otherwise, executes on mouse press in 5 pixel border or over textRauschen.
 function textRauschen_ButtonDownFcn(hObject, eventdata, handles)
-% hObject    handle to textRauschen (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
 
 % --- Executes during object creation, after setting all properties.
 function diameter_text_CreateFcn(hObject, eventdata, handles)
-% hObject    handle to diameter_text (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    empty - handles not created until after all CreateFcns called
-
 
 % --- Executes on selection change in progress_listbox.
 function progress_listbox_Callback(hObject, eventdata, handles)
-% hObject    handle to progress_listbox (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
 % Hints: contents = cellstr(get(hObject,'String')) returns progress_listbox contents as cell array
 %        contents{get(hObject,'Value')} returns selected item from progress_listbox
 
 
 % --- Executes during object creation, after setting all properties.
 function progress_listbox_CreateFcn(hObject, eventdata, handles)
-% hObject    handle to progress_listbox (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    empty - handles not created until after all CreateFcns called
-
 % Hint: listbox controls usually have a white background on Windows.
 %       See ISPC and COMPUTER.
 if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
     set(hObject,'BackgroundColor','white');
 end
+
+
+% --- Executes on button press in anwenden_parameter.
+function anwenden_parameter_Callback(hObject, eventdata, handles)
+% hObject    handle to anwenden_parameter (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
