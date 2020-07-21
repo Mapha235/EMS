@@ -276,18 +276,26 @@ function numberOfScans = numberofAScans(dataset)
     % dataset = load('phantom1_1_2.mat');
     % dataset = dataset.mscancut;
     [rows, values] = size(dataset);
-
+    
+    
+    B = dataset(20:140, :);
+    C = edge(B, 'Canny', [0.4 0.5]);
     numberOfScans = 0;
+
+    %Find the starting Point of the triange signal
+    c = 120
+    while B(c, 1) + B(c-4, 1) + B(c-8, 1) + B(c-12, 1) < 950 %ca. 250 pro B
+        c = c-1;
+    end
+
+    numberOfScansPosition = c-1;
+
+    %Look how many triangles there are
     c = 1;
-    maxtresh = 25250;   %26000
-    while c < values-100
-        treshhold = 0;
-        for d = 1:100
-            treshhold = treshhold + dataset(49, c+d);
-        end
-        if treshhold > maxtresh
+    while c < values -3
+        if C(numberOfScansPosition, c+1) + C(numberOfScansPosition, c) + C(numberOfScansPosition, c+2) == 3
             numberOfScans = numberOfScans + 1;
-            c = c+1000;
+            c = c+7000;                         %Davon ausgehend, dass der nächste Spike min. 7000 Pixel entfernt ist
         end
         c = c+1;
     end
