@@ -21,7 +21,6 @@ end
 % INIT
 % --- Executes just before gui is made visible.
 function gui_OpeningFcn(hObject, eventdata, handles, varargin)
-
 handles.output = hObject;
 handles.bscan_count = 0;
 handles.bscan_index = 1;
@@ -116,91 +115,107 @@ end
 
 % --------------------------------------------------------------------
 function select_file_ClickedCallback(hObject, eventdata, handles)
-
-    % clear all axes
-    cla(handles.polar, 'reset');
-    cla(handles.cartesian, 'reset');
-    cla(handles.sideview, 'reset');
-
-    [file, path] = uigetfile('*.?at');
-    full_file = strcat(path, file);
-    % [path, name, ext] = fileparts(file);
-    % display(full_file)
-    set(handles.plotpanel, 'Title', file);
-
-    handles.dataset = parse(full_file, hObject, handles);
-    handles.bscan_count = numberofAScans(handles.dataset);
-    [nrow, ncol] = size(handles.dataset);
-
-    message = {'------------------------------------'};
-    message{end+1} = sprintf("%s geladen.", file);
-    set(handles.progress_listbox, 'String', message);
-
-
-    % remove static artefact
-    staticMax = 0;
-    staticPos = 0;
-
-    for c = 150:260
-        val = 0;
-        for d = 1:10
-            val = val + handles.dataset(c, d*40);
-        end
-        if val > staticMax
-            staticMax = val;
-            staticPos = c;
-        end
-    end
-
-    for c=1:ncol
-        mean = (handles.dataset(staticPos-4, c) + handles.dataset(staticPos+5, c))/2;
-        for i = 1:7
-            handles.dataset(staticPos-3+i, c) = mean;
-        end
-    end
-
-    message{end+1} = 'Statisches Artefakt entfernt.';
-    set(handles.progress_listbox, 'String', message);
+    [file, path] = uigetfile('*.?at');   
     
+    if isa(file, 'char')
+        clear handles.dataset;
+        clear handles.bscan_count;
+        clear handles.bscan_index;
+        clear handles.current_slice;
+        clear handles.parameters;
+
+        % clear all axes
+        cla(handles.polar, 'reset');
+        cla(handles.cartesian, 'reset');
+        cla(handles.sideview, 'reset');
     
 
-    % insert bscan_indices for selection to popup menu
-    content = setPopupContent(handles.bscan_count);
-    set(handles.bscan_nr, 'String', content);
+        full_file = strcat(path, file);
+        % [path, name, ext] = fileparts(file);
+        % display(full_file)
+        set(handles.plotpanel, 'Title', file);
 
-    periode = floor(ncol / handles.bscan_count);
+        handles.dataset = parse(full_file, hObject, handles);
+        handles.bscan_count = numberofAScans(handles.dataset);
+        [nrow, ncol] = size(handles.dataset);
 
-    % set initial/default parameters
-    set(handles.catheter_position_edit, 'String', int2str(100));
-    handles.parameters{1} = 100;
-    set(handles.bscan_count_edit, 'String', int2str(handles.bscan_count));
-    handles.parameters{2} = handles.bscan_count;
-    set(handles.bscan_width_edit, 'String', int2str(periode));
-    handles.parameters{3} = periode;
+        
+        
+        message = get(handles.progress_listbox, 'String');
+        if message == ""
+            message = {'------------------------------------'};
+        else
+            message{end+1} = '------------------------------------';
+        end
+        message{end+1} = sprintf("%s geladen.", file);
+        set(handles.progress_listbox, 'String', message);
 
-    display(handles.parameters);
 
-    handles.current_slice = slice(handles.bscan_count, handles.dataset, handles.bscan_index);
+        % remove static artefact
+        staticMax = 0;
+        staticPos = 0;
 
-    outputMessage(hObject, handles, '', 1);
-    
+        for c = 150:260
+            val = 0;
+            for d = 1:10
+                val = val + handles.dataset(c, d*40);
+            end
+            if val > staticMax
+                staticMax = val;
+                staticPos = c;
+            end
+        end
 
-    if ~isempty(handles.dataset)
-        set(handles.bscan_nr, 'visible', 'on');
+        for c=1:ncol
+            mean = (handles.dataset(staticPos-4, c) + handles.dataset(staticPos+5, c))/2;
+            for i = 1:7
+                handles.dataset(staticPos-3+i, c) = mean;
+            end
+        end
+
+        message{end+1} = 'Statisches Artefakt entfernt.';
+        set(handles.progress_listbox, 'String', message);
+        
+        
+
+        % insert bscan_indices for selection to popup menu
+        content = setPopupContent(handles.bscan_count);
+        set(handles.bscan_nr, 'String', content);
+
+        periode = floor(ncol / handles.bscan_count);
+
+        % set initial/default parameters
+        set(handles.catheter_position_edit, 'String', int2str(100));
+        handles.parameters{1} = 100;
+        set(handles.bscan_count_edit, 'String', int2str(handles.bscan_count));
+        handles.parameters{2} = handles.bscan_count;
+        set(handles.bscan_width_edit, 'String', int2str(periode));
+        handles.parameters{3} = periode;
+
+        display(handles.parameters);
+
+        handles.current_slice = slice(handles.bscan_count, handles.dataset, handles.bscan_index);
+
+        outputMessage(hObject, handles, '', 1);
+        
+
+        if ~isempty(handles.dataset)
+            set(handles.bscan_nr, 'visible', 'on');
+        end
+
+        axes(handles.polar);
+        imagesc(handles.current_slice);
+        axes(handles.cartesian);
+        % imagesc(polartocart(handles.dataset, handles.bscan_index, 14634));
+        imagesc(polartocart(handles.current_slice));
+
+        axes(handles.sideview);
+        % for i = 1:10
+        %     handles.longitudinal = [handles.longitudinal sideView(slice(handles.bscan_count, handles.dataset, i), periode)];
+        % end
+        imagesc(handles.longitudinal);
+        guidata(hObject, handles);
     end
-
-    axes(handles.polar);
-    imagesc(handles.current_slice);
-    axes(handles.cartesian);
-    % imagesc(polartocart(handles.dataset, handles.bscan_index, 14634));
-    imagesc(polartocart(handles.current_slice));
-
-    axes(handles.sideview);
-    % for i = 1:10
-    %     handles.longitudinal = [handles.longitudinal sideView(slice(handles.bscan_count, handles.dataset, i), periode)];
-    % end
-    imagesc(handles.longitudinal);
-    guidata(hObject, handles);
 
 function [] = outputMessage(hObject, handles, msg, new)
     current_msg = get(handles.progress_listbox,'String');
@@ -292,8 +307,9 @@ function numberOfScans = numberofAScans(dataset)
 
     %Look how many triangles there are
     c = 1;
-    while c < values -3
-        if C(numberOfScansPosition, c+1) + C(numberOfScansPosition, c) + C(numberOfScansPosition, c+2) == 3
+    while c < values - 5
+        
+        if C(numberOfScansPosition, c) + C(numberOfScansPosition, c+1) + C(numberOfScansPosition, c+2) + C(numberOfScansPosition, c+3) + C(numberOfScansPosition, c+4) == 5
             numberOfScans = numberOfScans + 1;
             c = c+7000;                         %Davon ausgehend, dass der nächste Spike min. 7000 Pixel entfernt ist
         end
@@ -414,17 +430,14 @@ function [X, Y] = mesh_polartocart(BScan)
 
 % begin-------------------------------Kante einzeichnen-------------------------------------
 function value = Kanten_detektion_Polar(Bscan,tryT)
-    M = Bscan;
-    M = medfilt2(M,[3,3]);
+    M=FilterM(Bscan,0.6);
     [row,col] = size(M);
     value=zeros(col,1);
-    M = mat2gray(mat2gray(imguidedfilter(imadjust(M))),[0.51,1]);
-
     for i = 1:col
         for j=tryT:row
             if M(j,i)>0
                 value(i)=j;
-                
+               
                 break;
             end
         end
@@ -439,22 +452,86 @@ function value = Kanten_detektion_Polar(Bscan,tryT)
             end
         end
     end
-    value = medfilt1(value,floor(row/3));
-
+    value = medfilt1(value,floor(row/2));
     value = floor((value+0.5));
-    k=floor(col/10);
+    k=floor(col/12);
     while k>0
         if value(k)<=tryT || abs(value(k)-value(k+1))>25
             value(k)=value(k+1);
         end
         k=k-1;
     end
-    k=floor(col/10);
+    k=floor(col/12);
     for i=col-k:col
-        if value(k)<=tryT || abs(value(k)-value(k-1))>25
-            value(k)=value(k-1);
+        if value(i)<=tryT || abs(value(i)-value(i-1))>25
+            value(i)=value(i-1);
         end
     end
+    M = Bscan;
+    M = medfilt2(M,[3,3]);
+    M= imadjust(M);
+    M = mat2gray(mat2gray(M),[0.49,1]);
+    for i=1:col-1
+        j= value(i);
+        if j>tryT
+        if M(j-1,i+1)>0 && M(j-1,i+1)==0
+            value(i+1)=j-1;
+        elseif M(j,i+1)>0 && M(j-1,i+1)==0
+            value(i+1)=j;
+        end
+        end
+    end
+    for i=1:col-1
+        j1= value(i)-3;
+        j2= value(i)+3;
+        if j1<1
+            j1=1;
+        end
+        if j2>row
+            j2=row;
+        end
+        find=0;
+        find2=0;
+        for j=j1:j2
+            if M(j,i)>0 && find==0
+                value(i)=j;
+                find=1;
+               
+            end
+            if M(j,i+1)>0 && find2==0
+                value(i+1)=j;
+                find2=1;
+            end
+            if find==1 && find2==1
+                break;
+            end
+        end
+    end
+    value=medfilt1(value,row/4);
+    value = floor((value+0.5));
+    k=floor(col/12);
+    while k>0
+        if value(k)<=tryT || abs(value(k)-value(k+1))>25
+            value(k)=value(k+1);
+        end
+        k=k-1;
+    end
+    k=floor(col/12);
+    for i=col-k:col
+        if value(i)<=tryT || abs(value(i)-value(i-1))>25
+            value(i)=value(i-1);
+        end
+    end
+%    
+    %M = histeq(M);
+    %M = mat2gray(mat2gray(imguidedfilter(imadjust(M))),[0.4,1]);
+   
+    %M = mat2gray(M,[0.2,1]);
+    % imagesc(FilterM(Bscan,0.3))
+    % colormap(gray)
+    % hold on;
+    % plot(1:col,value,'r','LineWidth',2)
+
 
 
 function abtasten = KantenKart(BScan, Sample_points)
@@ -470,101 +547,43 @@ function abtasten = KantenKart(BScan, Sample_points)
     end
 
 
-function [center,averageDist, lumen] =findOuterCircle(BScan)
+function [center,averageDist, lumen] =findOuterCircle(BScan, edge)
     [row,col] = size(BScan);
-    Kanten = BScan;
-    Kanten = imguidedfilter(Kanten);
-    Kanten = medfilt2(Kanten,[3,3]);
-    Kanten = medfilt2(Kanten,[5,5]);
-    
-    %Filtern
-    for i=1:row
-        for j=1:col
-            if Kanten(i,j)<217
-                Kanten(i,j)=0;
-            end
-        end
+ 
+    %Koordinaten umwandlung
+    border=zeros(col,2);
+    for c=1:col
+        theta = (c * 2 * pi /col);
+        rho = edge(c,1);
+        [y1,y2]=pol2cart(theta,rho);
+        border(c,1)=floor(y1)+550;
+        border(c,2)=floor(y2)+550;
+ 
     end
-    
-    %Kanten erstellen
-    Kanten = edge(Kanten,'sobel');
-    
-    hVec = ones(200,2);
-    for c=1:200
-        Dh=110;
-        while ((Kanten(Dh,floor((c/200)*col))== 0) && (Dh<row))
-            Dh=Dh+1;
-        end
-        if(Dh==row)
-            hVec(c,2)=0;
-        end
-        hVec(c,1)=Dh;
-    end
-    
-    for c=1:100
-        if(hVec(c,2)==0)
-            hVec(c+100,2)=0;
-        end
-        if(hVec(c+100,2)==0)
-            hVec(c,2)=0;
-        end
-    end
-    
-    border = zeros(200,2);
-    for c=1:200
-        if(hVec(c,2)==1)
-            theta = floor((c/200)*col) * 2 * pi /col;
-            rho = hVec(c,1);
-            [y1,y2]=pol2cart(theta,rho);
-            border(c,1)=floor(y1)+550;
-            border(c,2)=floor(y2)+550;
-        end
-    
-    end
-    
-    cnt=0;
-    for c=1:200 
-        if(border(c,1)~=0)
-            cnt=cnt+1;
-        end
-    end
-    border2=zeros(cnt,2);
-    cnt=0;
-    for c=1:200 
-        if(border(c,1)~=0)
-            cnt=cnt+1;
-            border2(cnt,1)=border(c,1);
-            border2(cnt,2)=border(c,2);
-        end
-    end
-    
+   
     %mittelpunkt bestimmen
     centerY=0;
     centerX=0;
-    for c=1:cnt
-        centerY=centerY+border2(c,1);
-        centerX=centerX+border2(c,2);
+    for c=1:col
+        centerY=centerY+border(c,1);
+        centerX=centerX+border(c,2);
     end
-    center=[floor(centerY/cnt),floor(centerX/cnt)];
+    CenterX=floor(centerX/col);
+    CenterY=floor(centerY/col);
+    center=[CenterY,CenterX];
+   
     %durchschnittlicher Abstand
     averageDist=0;
-    for c=1:cnt
-        averageDist=averageDist+sqrt((center(1)-border2(c,1))^2+(center(2)-border2(c,2))^2);
+    for c=1:col
+        averageDist=averageDist+sqrt((center(1)-border(c,1))^2+(center(2)-border(c,2))^2);
     end
-    averageDist=floor(averageDist/cnt);
-    
-    % subplot(2,2,1),imagesc(BScan);
-    % subplot(2,2,2),imagesc(Kanten);
-    % subplot(2,2,3),imagesc(polarToCartesian(Kanten));
-    % subplot(2,2,4),imagesc(polarToCartesian(Kanten));
-    % axes(handles.polar)
-    % hold on;
-    % plot(border2(:, 2), border2(:, 1), 'g', 'LineWidth', 2);
-    
-    % hold on;
-    % rectangle('Position',[center(2)-averageDist,center(1)-averageDist,2*averageDist,2*averageDist],'Curvature',[1,1]);
-    lumen = border2;
-    
+    averageDist=floor(averageDist/col);
+   
+    lumen = border;
+    %imagesc(polarToCartesian(BScan));
+    %hold on; %plot Lumen
+    %plot(border(:, 2), border(:, 1), 'g', 'LineWidth', 2);
+
 % end-------------------------------Kante einzeichnen-------------------------------------
 % function = show(hObject, eventdata, handles)
 
@@ -628,6 +647,18 @@ function boxStatArt_Callback(hObject, eventdata, handles)
 % --- Executes on button press in checkbox7.
 function boxInnenwand_Callback(hObject, eventdata, handles)
 % Hint: get(hObject,'Value') returns toggle state of checkbox7
+if get(hObject, 'Value')
+    set(handles.boxKantenerkennung, 'Value', 1);
+    drawnow;
+    set(handles.boxKantenerkennung, 'Enable', 'off')
+    % set(handles.boxRauschen, 'Value', 1);
+    % drawnow;
+    % set(handles.boxRauschen, 'Enable', 'off')
+else
+    set(handles.boxRauschen, 'Enable', 'on')
+    set(handles.boxKantenerkennung, 'Enable', 'on')
+
+end
 
 
 % --- Executes on selection change in bscan_nr.
@@ -686,6 +717,7 @@ function update(hObject, eventdata, handles)
     drawnow;
     % set(handles.title, 'String', title);
     handles.current_slice = slice(handles.bscan_count, handles.dataset, handles.bscan_index);
+    display(size(handles.current_slice));
 
     if get(handles.boxGraustufen, 'Value')
         colormap(gray);
@@ -724,7 +756,7 @@ function update(hObject, eventdata, handles)
     set(handles.diameter_text, 'Visible', 'off');
     if get(handles.boxInnenwand, 'Value')
         axes(handles.cartesian);
-        [center, averageDist, lumen] = findOuterCircle(handles.current_slice);
+        [center, averageDist, lumen] = findOuterCircle(handles.current_slice, Build_Polar);
         display(averageDist);
         % radius_mm = strcat('Radius:\t', 2str(averageDist*(5.19/1000)), 'mm');
         diameter_mm = sprintf('Durchmesser: %.6f mm', 2*averageDist*(5.19/1000));
@@ -756,7 +788,7 @@ function boxGraustufen_Callback(hObject, eventdata, handles)
 % --- Executes on button press in boxKantenerkennung.
 function boxKantenerkennung_Callback(hObject, eventdata, handles)
 % Hint: get(hObject,'Value') returns toggle state of boxKantenerkennung
-display(get(hObject, 'Value'));
+% display(get(hObject, 'Value'));
 if get(hObject, 'Value')
     set(handles.boxStatArt, 'Value', 1);
     drawnow;
@@ -807,8 +839,33 @@ if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgr
 end
 
 
-% --- Executes on button press in anwenden_parameter.
-function anwenden_parameter_Callback(hObject, eventdata, handles)
-% hObject    handle to anwenden_parameter (see GCBO)
+% --- Executes on button press in delete_history.
+function delete_history_Callback(hObject, eventdata, handles)
+% hObject    handle to delete_history (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
+set(handles.progress_listbox, 'String', '');
+guidata(hObject, handles);
+
+
+
+function threshold_edit_Callback(hObject, eventdata, handles)
+% hObject    handle to threshold_edit (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of threshold_edit as text
+%        str2double(get(hObject,'String')) returns contents of threshold_edit as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function threshold_edit_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to threshold_edit (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
