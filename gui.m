@@ -21,6 +21,8 @@ end
 % INIT
 % --- Executes just before gui is made visible.
 function gui_OpeningFcn(hObject, eventdata, handles, varargin)
+addpath './algos';
+savepath
 handles.output = hObject;
 handles.bscan_count = 0;
 handles.bscan_index = 1;
@@ -217,26 +219,6 @@ function select_file_ClickedCallback(hObject, eventdata, handles)
         guidata(hObject, handles);
     end
 
-function [] = outputMessage(hObject, handles, msg, new)
-    current_msg = get(handles.progress_listbox,'String');
-    if new
-        current_msg{end+1} = '------------------------------------';
-        current_msg{end+1} = sprintf("- Slice Nr.: %d / %d", handles.bscan_index, handles.bscan_count);
-    else
-        current_msg{end+1} = "- " + msg;
-    end
-        % current_msg(end+1) = {strcat('- Slice Nr.', int2str(handles.bscan_index), '/', int2str(handles.bscan_count))};
-    set(handles.progress_listbox, 'String', current_msg);
-    set(handles.progress_listbox, 'Value', numel(get(handles.progress_listbox,'String')));
-
-function contents = setPopupContent(bscan_count)
-    contents = [{}];
-    for i = 1:bscan_count
-        % temp_index = int2str(mod(i, 48));
-        temp_index = int2str(i);
-        contents(i) = {temp_index};
-    end
-
 % --- Executes on button press in pushbutton3.
 function anwenden_options_Callback(hObject, eventdata, handles)
 
@@ -268,24 +250,6 @@ function anwenden_options_Callback(hObject, eventdata, handles)
 
 % --------------------------------------------------------------------
 
-function data = parse(file_path, hObject, handles)
-    [path, name, ext] = fileparts(file_path);
-
-    % cla(handles.polar);
-    % cla(handles.cartesian);
-    % cla(handles.sideview);
-
-    if strcmp(ext, '.mat')
-        data = matfile(file_path);
-        details = whos(data);
-        [maxBytes, index] = max([details.bytes]);
-        var = details(index).name;
-        % imagesc(data.(var));
-    elseif strcmp(ext, '.dat')
-        fileID = fopen(file_path);
-    end
-
-    data = data.(var);
 
 % begin-------------------------------Längstverlauf-------------------------------------
 function [M] =sideView(Scan,numberOfAScans)
@@ -405,72 +369,6 @@ function states = check_requirements(handles)
     end
     
 
-function update(hObject, eventdata, handles)
-    
-    state = check_requirements(handles);
-    
-    
-    % title = sprintf('Slice Nr. %d', handles.bscan_index);
-    popup_index = get(handles.bscan_nr, 'Value');
-    set(handles.bscan_nr, 'Value', handles.bscan_index);
-    outputMessage(hObject, handles, '', 1);
-    drawnow;
-    % set(handles.title, 'String', title);
-    handles.current_slice = slice(handles.bscan_count, handles.dataset, handles.bscan_index);
-    display(size(handles.current_slice));
-
-    if get(handles.boxGraustufen, 'Value')
-        colormap(gray);
-
-    else
-        colormap default;
-    end
-    if get(handles.boxStatArt, 'Value')
-        % handles.current_slice = remove_static_artefact(handles.current_slice);
-    end
-    if get(handles.boxRauschen, 'Value')
-        % handles.current_slice = medfilt2(handles.current_slice, [3, 3]);
-        % handles.current_slice = medfilt2(handles.current_slice, [5, 5]);
-        handles.current_slice = medfilt2(handles.current_slice, [6, 6]);
-    end
-    
-
-    guidata(hObject, handles);
-    axes(handles.polar);
-    imagesc(handles.current_slice);
-    axes(handles.cartesian);
-    imagesc(polartocart(handles.current_slice));
-    drawnow; 
-
-    if get(handles.boxKantenerkennung, 'Value')
-        axes(handles.polar);
-        hold on;
-        Build_Polar = Kanten_detektion_Polar(handles.current_slice, handles.parameters{1});
-        [nrow, ncol] = size(Build_Polar);
-        plot(1:nrow, Build_Polar, 'g', 'LineWidth', 2);
-        % axes(handles.cartesian);
-        % hold on;
-        % Build_Kart = KantenKart(handles.current_slice, Build_Polar);
-        % plot(Build_Kart(:, 2), Build_Kart(:, 1), 'r', 'LineWidth', 2);
-    end
-    set(handles.diameter_text, 'Visible', 'off');
-    if get(handles.boxInnenwand, 'Value')
-        axes(handles.cartesian);
-        [center, averageDist, lumen] = findOuterCircle(handles.current_slice, Build_Polar);
-        display(averageDist);
-        % radius_mm = strcat('Radius:\t', 2str(averageDist*(5.19/1000)), 'mm');
-        diameter_mm = sprintf('Durchmesser: %.6f mm', 2*averageDist*(5.19/1000));
-        set(handles.diameter_text, 'Visible', 'on');
-        set(handles.diameter_text, 'String', diameter_mm);
-        hold on;
-        plot(lumen(:, 2), lumen(:, 1), 'g', 'LineWidth', 2);
-        
-        hold on;
-        rectangle('Position',[center(2)-averageDist,center(1)-averageDist,2*averageDist,2*averageDist],'Curvature',[1,1]);
-    end
-
-    % imagesc(polartocart(handles.dataset, handles.bscan_index, 14634));
-    
 
 % --- Executes during object creation, after setting all properties.
 function plotpanel_CreateFcn(hObject, eventdata, handles)
@@ -569,3 +467,108 @@ function threshold_edit_CreateFcn(hObject, eventdata, handles)
 if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
     set(hObject,'BackgroundColor','white');
 end
+
+function data = parse(file_path, hObject, handles)
+    [path, name, ext] = fileparts(file_path);
+
+    % cla(handles.polar);
+    % cla(handles.cartesian);
+    % cla(handles.sideview);
+
+    if strcmp(ext, '.mat')
+        data = matfile(file_path);
+        details = whos(data);
+        [maxBytes, index] = max([details.bytes]);
+        var = details(index).name;
+        % imagesc(data.(var));
+    elseif strcmp(ext, '.dat')
+        fileID = fopen(file_path);
+    end
+
+    data = data.(var);
+
+function [] = outputMessage(hObject, handles, msg, new)
+    current_msg = get(handles.progress_listbox,'String');
+    if new
+        current_msg{end+1} = '------------------------------------';
+        current_msg{end+1} = sprintf("- Slice Nr.: %d / %d", handles.bscan_index, handles.bscan_count);
+    else
+        current_msg{end+1} = "- " + msg;
+    end
+        % current_msg(end+1) = {strcat('- Slice Nr.', int2str(handles.bscan_index), '/', int2str(handles.bscan_count))};
+    set(handles.progress_listbox, 'String', current_msg);
+    set(handles.progress_listbox, 'Value', numel(get(handles.progress_listbox,'String')));
+
+function contents = setPopupContent(bscan_count)
+    contents = [{}];
+    for i = 1:bscan_count
+        % temp_index = int2str(mod(i, 48));
+        temp_index = int2str(i);
+        contents(i) = {temp_index};
+    end
+    
+function update(hObject, eventdata, handles)
+    
+    state = check_requirements(handles);
+    
+    
+    % title = sprintf('Slice Nr. %d', handles.bscan_index);
+    popup_index = get(handles.bscan_nr, 'Value');
+    set(handles.bscan_nr, 'Value', handles.bscan_index);
+    outputMessage(hObject, handles, '', 1);
+    drawnow;
+    % set(handles.title, 'String', title);
+    handles.current_slice = slice(handles.bscan_count, handles.dataset, handles.bscan_index);
+    display(size(handles.current_slice));
+
+    if get(handles.boxGraustufen, 'Value')
+        colormap(gray);
+
+    else
+        colormap default;
+    end
+    if get(handles.boxStatArt, 'Value')
+        % handles.current_slice = remove_static_artefact(handles.current_slice);
+    end
+    if get(handles.boxRauschen, 'Value')
+        % handles.current_slice = medfilt2(handles.current_slice, [3, 3]);
+        % handles.current_slice = medfilt2(handles.current_slice, [5, 5]);
+        handles.current_slice = medfilt2(handles.current_slice, [6, 6]);
+    end
+    
+
+    guidata(hObject, handles);
+    axes(handles.polar);
+    imagesc(handles.current_slice);
+    axes(handles.cartesian);
+    imagesc(polartocart(handles.current_slice));
+    drawnow; 
+
+    if get(handles.boxKantenerkennung, 'Value')
+        axes(handles.polar);
+        hold on;
+        Build_Polar = Kanten_detektion_Polar(handles.current_slice, handles.parameters{1});
+        [nrow, ncol] = size(Build_Polar);
+        plot(1:nrow, Build_Polar, 'g', 'LineWidth', 2);
+        % axes(handles.cartesian);
+        % hold on;
+        % Build_Kart = KantenKart(handles.current_slice, Build_Polar);
+        % plot(Build_Kart(:, 2), Build_Kart(:, 1), 'r', 'LineWidth', 2);
+    end
+    set(handles.diameter_text, 'Visible', 'off');
+    if get(handles.boxInnenwand, 'Value')
+        axes(handles.cartesian);
+        [center, averageDist, lumen] = findOuterCircle(handles.current_slice, Build_Polar);
+        display(averageDist);
+        % radius_mm = strcat('Radius:\t', 2str(averageDist*(5.19/1000)), 'mm');
+        diameter_mm = sprintf('Durchmesser: %.6f mm', 2*averageDist*(5.19/1000));
+        set(handles.diameter_text, 'Visible', 'on');
+        set(handles.diameter_text, 'String', diameter_mm);
+        hold on;
+        plot(lumen(:, 2), lumen(:, 1), 'g', 'LineWidth', 2);
+        
+        hold on;
+        rectangle('Position',[center(2)-averageDist,center(1)-averageDist,2*averageDist,2*averageDist],'Curvature',[1,1]);
+    end
+
+    % imagesc(polartocart(handles.dataset, handles.bscan_index, 14634));
