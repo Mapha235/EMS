@@ -1,4 +1,4 @@
-function numberOfScans = numberofAScans(dataset)
+function numberOfScans = numberofBScans(dataset)
     % dataset = load('phantom1_1_2.mat');
     % dataset = dataset.mscancut;
     [rows, values] = size(dataset);

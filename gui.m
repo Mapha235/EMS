@@ -21,25 +21,28 @@ end
 % INIT
 % --- Executes just before gui is made visible.
 function gui_OpeningFcn(hObject, eventdata, handles, varargin)
-addpath './algos';
-savepath
-handles.output = hObject;
-handles.bscan_count = 0;
-handles.bscan_index = 1;
-handles.current_slice = [];
-handles.dataset = [];
-handles.parameters = {};
-handles.longitudinal = [];
+    addpath './algos';
+    savepath
 
-% Contains information whether a task has been executed already or not. Avoids redundant execution of tasks.
-handles.already_executed = zeros(5,1);
+    handles.output = hObject;
+    handles.bscan_count = 0;
+    handles.bscan_index = 1;
+    handles.current_bscan = [];
+    handles.dataset = [];
+    handles.parameters = {};
+    handles.longitudinal = [];
+    handles.plots = [{}];
+    handles.angle = 90;
 
-if isempty(handles.dataset)
-    set(handles.bscan_nr, 'visible', 'off');
-end
+    % Contains information whether a task has been executed already or not. Avoids redundant execution of tasks.
+    handles.already_executed = zeros(4,1);
 
-% Update handles structure
-guidata(hObject, handles);
+    if isempty(handles.dataset)
+        set(handles.bscan_nr_popup, 'visible', 'off');
+    end
+
+    % Update handles structure
+    guidata(hObject, handles);
 
 % UIWAIT makes gui wait for user response (see UIRESUME)
 % uiwait(handles.figure1);
@@ -47,13 +50,13 @@ guidata(hObject, handles);
 
 % --- Outputs from this function are returned to the command line.
 function varargout = gui_OutputFcn(hObject, eventdata, handles) 
-varargout{1} = handles.output;
+    varargout{1} = handles.output;
 
 
 
-function catheter_position_edit_Callback(hObject, eventdata, handles)
+function catheter_length_edit_Callback(hObject, eventdata, handles)
     % handles.parameters = {};
-    temp = str2double(get(handles.catheter_position_edit,'String'));
+    temp = str2double(get(handles.catheter_length_edit,'String'));
     if isnan(temp)
         outputMessage(hObject, handles, "Fehler: Parameter muss eine Zahl sein.", 0)
     end
@@ -63,7 +66,7 @@ function catheter_position_edit_Callback(hObject, eventdata, handles)
 
 
 % --- Executes during object creation, after setting all properties.
-function catheter_position_edit_CreateFcn(hObject, eventdata, handles)
+function catheter_length_edit_CreateFcn(hObject, eventdata, handles)
 if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
     set(hObject,'BackgroundColor','white');
 end
@@ -123,7 +126,7 @@ function select_file_ClickedCallback(hObject, eventdata, handles)
         clear handles.dataset;
         clear handles.bscan_count;
         clear handles.bscan_index;
-        clear handles.current_slice;
+        clear handles.current_bscan;
         clear handles.parameters;
 
         % clear all axes
@@ -138,7 +141,7 @@ function select_file_ClickedCallback(hObject, eventdata, handles)
         set(handles.plotpanel, 'Title', file);
 
         handles.dataset = parse(full_file, hObject, handles);
-        handles.bscan_count = numberofAScans(handles.dataset);
+        handles.bscan_count = numberofBScans(handles.dataset);
         [nrow, ncol] = size(handles.dataset);
 
         
@@ -154,26 +157,7 @@ function select_file_ClickedCallback(hObject, eventdata, handles)
 
 
         % remove static artefact
-        staticMax = 0;
-        staticPos = 0;
-
-        for c = 150:260
-            val = 0;
-            for d = 1:10
-                val = val + handles.dataset(c, d*40);
-            end
-            if val > staticMax
-                staticMax = val;
-                staticPos = c;
-            end
-        end
-
-        for c=1:ncol
-            mean = (handles.dataset(staticPos-4, c) + handles.dataset(staticPos+5, c))/2;
-            for i = 1:7
-                handles.dataset(staticPos-3+i, c) = mean;
-            end
-        end
+        handles.dataset = remove_static_artefact_auto(handles.dataset);
 
         message{end+1} = 'Statisches Artefakt entfernt.';
         set(handles.progress_listbox, 'String', message);
@@ -182,109 +166,96 @@ function select_file_ClickedCallback(hObject, eventdata, handles)
 
         % insert bscan_indices for selection to popup menu
         content = setPopupContent(handles.bscan_count);
-        set(handles.bscan_nr, 'String', content);
+        files = setFunctionPopupContent(pwd);
+        set(handles.functions_popup, 'String', files);
+        set(handles.bscan_nr_popup, 'String', content);
 
         periode = floor(ncol / handles.bscan_count);
 
         % set initial/default parameters
-        set(handles.catheter_position_edit, 'String', int2str(100));
+        set(handles.catheter_length_edit, 'String', int2str(100));
         handles.parameters{1} = 100;
         set(handles.bscan_count_edit, 'String', int2str(handles.bscan_count));
         handles.parameters{2} = handles.bscan_count;
         set(handles.bscan_width_edit, 'String', int2str(periode));
         handles.parameters{3} = periode;
+        handles.angle = 90;
+        set(handles.angle_edit, 'String', int2str(handles.angle));
 
-        display(handles.parameters);
+        handles.current_bscan = getBScan(handles.bscan_count, handles.dataset, handles.bscan_index);
 
-        handles.current_slice = slice(handles.bscan_count, handles.dataset, handles.bscan_index);
-
+        % for i = 1:handles.bscan_count-1
+        %     handles.all_cartesian{end+1} = polartocart(getBScan(handles.bscan_count, handles.dataset, i));
+        % end
         outputMessage(hObject, handles, '', 1);
         
-
+        
         if ~isempty(handles.dataset)
-            set(handles.bscan_nr, 'visible', 'on');
+            set(handles.bscan_nr_popup, 'visible', 'on');
         end
 
-        axes(handles.polar);
-        imagesc(handles.current_slice);
-        axes(handles.cartesian);
-        % imagesc(polartocart(handles.dataset, handles.bscan_index, 14634));
-        imagesc(polartocart(handles.current_slice));
+        % axes(handles.polar);
+        % imagesc(handles.current_bscan);
+        % axes(handles.cartesian);
+        % % imagesc(polartocart(handles.dataset, handles.bscan_index, 14634));
+        % imagesc(polartocart(handles.current_bscan));
+
+        set(handles.boxGraustufen, 'Value', 1);
+        set(handles.box_show_polar, 'Value', 1);
+
 
         axes(handles.sideview);
-        % for i = 1:10
-        %     handles.longitudinal = [handles.longitudinal sideView(slice(handles.bscan_count, handles.dataset, i), periode)];
-        % end
+        handles.longitudinal = sideView(handles.dataset, 0, handles.parameters{2}, handles.angle);
         imagesc(handles.longitudinal);
         guidata(hObject, handles);
+        update(hObject, eventdata,handles);
     end
 
 % --- Executes on button press in pushbutton3.
 function anwenden_options_Callback(hObject, eventdata, handles)
 
     % katheter entfernen---------------------------------------------------
-    handles.current_slice = remove_static_artefact(handles.current_slice);
+    % handles.current_bscan = remove_static_artefact(handles.current_bscan);
 
     % Änderungen der Parameter übernehmen
-    handles.parameters{1} = str2double(get(handles.catheter_position_edit, 'String'));
+    cla(handles.polar, 'reset');
+    cla(handles.cartesian, 'reset');
+    cla(handles.sideview, 'reset');
+    
+    handles.parameters{1} = str2double(get(handles.catheter_length_edit, 'String'));
     handles.parameters{2} = str2double(get(handles.bscan_count_edit, 'String'));
     handles.parameters{3} = str2double(get(handles.bscan_width_edit, 'String'));
-    handles.bscan_count = handles.parameters{2};
-    display(handles.parameters);
+    handles.angle = str2double(get(handles.angle_edit, 'String'));
+    handles.bscan_count = floor(handles.parameters{2});
     
     
     content = setPopupContent(handles.bscan_count);
+    handles.longitudinal = sideView(handles.dataset, 0, handles.parameters{2}, handles.angle);
+    axes(handles.sideview);
+    imagesc(handles.longitudinal);
 
-
-    set(handles.bscan_nr, 'String', content);
-    % handles.current_slice = remove_catheter(handles.current_slice, [100, 512]);
+    set(handles.bscan_nr_popup, 'String', content);
+    % handles.current_bscan = remove_catheter(handles.current_bscan, [100, 512]);
     % guidata(hObject, handles);
     axes(handles.polar);
-    imagesc(handles.current_slice);
+    imagesc(handles.current_bscan);
     axes(handles.cartesian);
     % imagesc(polartocart(handles.dataset, handles.bscan_index, 14634));
-    imagesc(polartocart(handles.current_slice));
+    imagesc(polartocart(handles.current_bscan));
     % display(handles.parameters);
     guidata(hObject, handles);
+    update(hObject, eventdata, handles);
 
-
-% --------------------------------------------------------------------
-
-
-% begin-------------------------------Längstverlauf-------------------------------------
-function [M] =sideView(Scan,numberOfAScans)
-    [row,col] = size(Scan);
-    
-    lengthOFAScan = floor(col/numberOfAScans);
-    
-    M=zeros(1,1);
-    pointer=1;
-    for x=1:numberOfAScans
-        l = lengthOFAScan;
-        
-        for c=1:row
-            M(c+row,x*3-2)=Scan(c,pointer+floor(l*1/4));
-            M(c+row,x*3-1)=Scan(c,pointer+floor(l*1/4));
-            M(c+row,x*3)=Scan(c,pointer+floor(l*1/4));
-            
-            M(row-c+1,x*3-2)=Scan(c,pointer+ floor(l*3/4));
-            M(row-c+1,x*3-1)=Scan(c,pointer+ floor(l*3/4));
-            M(row-c+1,x*3)=Scan(c,pointer+ floor(l*3/4));
-        end
-        
-        pointer=pointer+l;
-    end
-        %M = imsharpen(M)  
-    M = ordfilt2(M,7,ones(5,2));
-
-% end---------------------------------Längstverlauf-------------------------------------
 
 % --- Executes on button press in decrement.
 function decrement_Callback(hObject, eventdata, handles)
 % handles.bscan_index = (handles.bscan_index - 1);
 % current_index = get(hObject, 'index');
 % current_index = current_index - 1;
-handles.bscan_index = mod(handles.bscan_index - 1, handles.bscan_count);
+handles.bscan_index = handles.bscan_index - 1;
+if handles.bscan_index < 1
+    handles.bscan_index = handles.bscan_count;
+end
 update(hObject,eventdata,handles);
 
 
@@ -294,7 +265,10 @@ function increment_Callback(hObject, eventdata, handles)
 % current_index = get(hObject, 'index');
 % current_index = current_index + 1;
 % set(hObject, 'index', current_index);
-handles.bscan_index = mod(handles.bscan_index + 1, handles.bscan_count);
+handles.bscan_index = handles.bscan_index + 1;
+if handles.bscan_index > handles.bscan_count
+    handles.bscan_index = 1;
+end
 update(hObject,eventdata,handles);
 
 
@@ -302,10 +276,6 @@ update(hObject,eventdata,handles);
 function cartesian_CreateFcn(hObject, eventdata, handles)
 
 % Hint: place code in OpeningFcn to populate cartesian
-
-% --- Executes on button press in boxStatArt.
-function boxStatArt_Callback(hObject, eventdata, handles)
-% Hint: get(hObject,'Value') returns toggle state of boxStatArt
 
 
 % --- Executes on button press in checkbox7.
@@ -319,53 +289,50 @@ if get(hObject, 'Value')
     % drawnow;
     % set(handles.boxRauschen, 'Enable', 'off')
 else
-    set(handles.boxRauschen, 'Enable', 'on')
     set(handles.boxKantenerkennung, 'Enable', 'on')
 
 end
 
 
-% --- Executes on selection change in bscan_nr.
-function bscan_nr_Callback(hObject, eventdata, handles)
-% Hints: contents = cellstr(get(hObject,'String')) returns bscan_nr contents as cell array
-%        contents{get(hObject,'Value')} returns selected item from bscan_nr
+% --- Executes on selection change in bscan_nr_popup.
+function bscan_nr_popup_Callback(hObject, eventdata, handles)
+% Hints: contents = cellstr(get(hObject,'String')) returns bscan_nr_popup contents as cell array
+%        contents{get(hObject,'Value')} returns selected item from bscan_nr_popup
 
 contents = cellstr(get(hObject,'String'));
 
 handles.bscan_index = str2num(contents{get(hObject,'Value')});
-display(handles.bscan_index);
 update(hObject, eventdata, handles);
 
 % --- Executes during object creation, after setting all properties.
-function bscan_nr_CreateFcn(hObject, eventdata, handles)
+function bscan_nr_popup_CreateFcn(hObject, eventdata, handles)
 % Hint: popupmenu controls usually have a white background on Windows.
 %       See ISPC and COMPUTER.
 if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
     set(hObject,'BackgroundColor','white');
 end
 
-
-% --- Executes on button press in pushbutton6.
-function pushbutton6_Callback(hObject, eventdata, handles)
-
-
-function states = check_requirements(handles)
-    states = zeros(5, 1);
+function [] = set_executed(hObject, eventdata, handles)
+    
     if get(handles.boxGraustufen, 'Value')
-        states(1) = 1;
+        handles.already_executed(1) = 1;
+    else
+        handles.already_executed(1) = 0;
     end
-    if get(handles.boxStatArt, 'Value')
-        states(2) = 1;
+    if get(handles.box_show_polar, 'Value')
+        handles.already_executed(2) = 1;
+    else
+        handles.already_executed(2) = 0;
     end
-    if get(handles.boxRauschen, 'Value')
-        states(3) = 1;
+    if get(handles.boxInnenwand, 'Value')
+        handles.already_executed(3) = 1;
+    else
+        handles.already_executed(3) = 0;
     end
     if get(handles.boxKantenerkennung, 'Value')
-        states(5) = 1;
-        set(handles.boxStatArt, 'Value', 1);
-        drawnow;
-        % set(handles.boxRauschen, 'Value', 1);
-        % drawnow;
+        handles.already_executed(4) = 1;
+    else
+        handles.already_executed(4) = 0;
     end
     
 
@@ -387,27 +354,19 @@ function boxGraustufen_Callback(hObject, eventdata, handles)
 function boxKantenerkennung_Callback(hObject, eventdata, handles)
 % Hint: get(hObject,'Value') returns toggle state of boxKantenerkennung
 % display(get(hObject, 'Value'));
-if get(hObject, 'Value')
-    set(handles.boxStatArt, 'Value', 1);
-    drawnow;
-    set(handles.boxStatArt, 'Enable', 'off')
-    % set(handles.boxRauschen, 'Value', 1);
-    % drawnow;
-    % set(handles.boxRauschen, 'Enable', 'off')
-else
-    set(handles.boxStatArt, 'Enable', 'on')
-    set(handles.boxRauschen, 'Enable', 'on')
 
-end
 
 % --- If Enable == 'on', executes on mouse press in 5 pixel border.
 % --- Otherwise, executes on mouse press in 5 pixel border or over textKantenerkennung.
 function textKantenerkennung_ButtonDownFcn(hObject, eventdata, handles)
-value = ~get(handles.boxKantenerkennung, 'Value');
-display(value);
-set(handles.boxKantenerkennung, 'value', value);
-% check_requirements(handles);
-boxKantenerkennung_Callback(hObject, eventdata, handles);
+    value = ~get(handles.boxKantenerkennung, 'Value');
+    display(value);
+    set(handles.boxKantenerkennung, 'value', value);
+    boxKantenerkennung_Callback(hObject, eventdata, handles);
+
+function polar_ButtonDownFcn(hObject, eventdata, handles)
+    figure;
+    imagesc(handles.current_bscan);
 
 
 % --- Executes on button press in boxRauschen.
@@ -418,9 +377,6 @@ function boxRauschen_Callback(hObject, eventdata, handles)
 % --- If Enable == 'on', executes on mouse press in 5 pixel border.
 % --- Otherwise, executes on mouse press in 5 pixel border or over textRauschen.
 function textRauschen_ButtonDownFcn(hObject, eventdata, handles)
-
-% --- Executes during object creation, after setting all properties.
-function diameter_text_CreateFcn(hObject, eventdata, handles)
 
 % --- Executes on selection change in progress_listbox.
 function progress_listbox_Callback(hObject, eventdata, handles)
@@ -495,7 +451,7 @@ function [] = outputMessage(hObject, handles, msg, new)
     else
         current_msg{end+1} = "- " + msg;
     end
-        % current_msg(end+1) = {strcat('- Slice Nr.', int2str(handles.bscan_index), '/', int2str(handles.bscan_count))};
+        % current_msg(end+1) = {strcat('- B-Scan Nr.', int2str(handles.bscan_index), '/', int2str(handles.bscan_count))};
     set(handles.progress_listbox, 'String', current_msg);
     set(handles.progress_listbox, 'Value', numel(get(handles.progress_listbox,'String')));
 
@@ -506,64 +462,93 @@ function contents = setPopupContent(bscan_count)
         temp_index = int2str(i);
         contents(i) = {temp_index};
     end
+
+function contents = setFunctionPopupContent(path)
+    % files = dir('algos/*.m');
+    % [fcts, temp] = size(files);
+    
+    contents = [{}];
+    contents{1} = 'Allgemein';
+    % for i = 1:fcts
+    %     contents{end+1} = files(i).name(1:end-2);
+    % end
+    contents{2} = 'Kantenerkennung';
+    contents{3} = 'Seitenansicht';
     
 function update(hObject, eventdata, handles)
+    % title = sprintf('B-Scan Nr. %d', handles.bscan_index);
+    popup_index = get(handles.bscan_nr_popup, 'Value');
     
-    state = check_requirements(handles);
+    % Check if a new BScan has been selected
     
+    set(handles.bscan_nr_popup, 'Value', handles.bscan_index);
     
-    % title = sprintf('Slice Nr. %d', handles.bscan_index);
-    popup_index = get(handles.bscan_nr, 'Value');
-    set(handles.bscan_nr, 'Value', handles.bscan_index);
-    outputMessage(hObject, handles, '', 1);
-    drawnow;
     % set(handles.title, 'String', title);
-    handles.current_slice = slice(handles.bscan_count, handles.dataset, handles.bscan_index);
-    display(size(handles.current_slice));
+    handles.current_bscan = getBScan(handles.bscan_count, handles.dataset, handles.bscan_index);
+    [row ncol] = size(handles.current_bscan);
 
     if get(handles.boxGraustufen, 'Value')
         colormap(gray);
-
     else
         colormap default;
-    end
-    if get(handles.boxStatArt, 'Value')
-        % handles.current_slice = remove_static_artefact(handles.current_slice);
-    end
-    if get(handles.boxRauschen, 'Value')
-        % handles.current_slice = medfilt2(handles.current_slice, [3, 3]);
-        % handles.current_slice = medfilt2(handles.current_slice, [5, 5]);
-        handles.current_slice = medfilt2(handles.current_slice, [6, 6]);
     end
     
 
     guidata(hObject, handles);
+    
     axes(handles.polar);
-    imagesc(handles.current_slice);
+    handles.plots{1} = imagesc(handles.current_bscan);
+    if get(handles.box_show_polar, 'Value')
+        set(handles.polar, 'Visible', 'on');
+        set(handles.plots{1}, 'Visible', 'on');
+        set(handles.text1, 'Visible', 'on');
+    else
+        set(handles.polar, 'Visible', 'off');
+        set(handles.plots{1}, 'Visible', 'off');
+        set(handles.text1, 'Visible', 'off');
+    end
+
     axes(handles.cartesian);
-    imagesc(polartocart(handles.current_slice));
-    drawnow; 
+    % imagesc(handles.all_cartesian{popup_index});
+    handles.plots{2} = imagesc(polartocart(handles.current_bscan));
+
+    axes(handles.sideview);
+    handles.plots{3} = imagesc(handles.longitudinal);
+    hold on;
+    rectangle('Position',[handles.bscan_index,1,0,150],'EdgeColor','r','Linewidth',3);
+    hold on;
+    rectangle('Position',[handles.bscan_index,(row*2)-150,0,150],'EdgeColor','r','Linewidth',3);
+    hold off;
+    outputMessage(hObject, handles, '', 1);
+
+
 
     if get(handles.boxKantenerkennung, 'Value')
         axes(handles.polar);
         hold on;
-        Build_Polar = Kanten_detektion_Polar(handles.current_slice, handles.parameters{1});
+        Build_Polar = Kanten_detektion_Polar(handles.current_bscan, handles.parameters{1});
         [nrow, ncol] = size(Build_Polar);
-        plot(1:nrow, Build_Polar, 'g', 'LineWidth', 2);
+        
+        if get(handles.box_show_polar, 'Value')
+            plot(1:nrow, Build_Polar, 'g', 'LineWidth', 2);
+        end
         % axes(handles.cartesian);
         % hold on;
-        % Build_Kart = KantenKart(handles.current_slice, Build_Polar);
+        % Build_Kart = KantenKart(handles.current_bscan, Build_Polar);
         % plot(Build_Kart(:, 2), Build_Kart(:, 1), 'r', 'LineWidth', 2);
     end
-    set(handles.diameter_text, 'Visible', 'off');
     if get(handles.boxInnenwand, 'Value')
         axes(handles.cartesian);
-        [center, averageDist, lumen] = findOuterCircle(handles.current_slice, Build_Polar);
-        display(averageDist);
+        [center, averageDist, lumen, minDist, maxDist] = findOuterCircle(handles.current_bscan, Build_Polar);
         % radius_mm = strcat('Radius:\t', 2str(averageDist*(5.19/1000)), 'mm');
-        diameter_mm = sprintf('Durchmesser: %.6f mm', 2*averageDist*(5.19/1000));
-        set(handles.diameter_text, 'Visible', 'on');
-        set(handles.diameter_text, 'String', diameter_mm);
+        diameter_mm = sprintf('durchschn. Durchmesser:%c %.6f mm',newline, 2*averageDist*(5.19/(1000*1.33)));
+        outputMessage(hObject, handles, diameter_mm, 0);
+        minDist_mm = sprintf('min. Durchmesser:%c %.6f mm',newline, 2*minDist*(5.19/(1000*1.33)));
+        outputMessage(hObject, handles, minDist_mm, 0);
+        maxDist_mm = sprintf('max. Durchmesser:%c %.6f mm',newline, 2*maxDist*(5.19/(1000*1.33)));
+        outputMessage(hObject, handles, maxDist_mm, 0);
+
+
         hold on;
         plot(lumen(:, 2), lumen(:, 1), 'g', 'LineWidth', 2);
         
@@ -571,4 +556,75 @@ function update(hObject, eventdata, handles)
         rectangle('Position',[center(2)-averageDist,center(1)-averageDist,2*averageDist,2*averageDist],'Curvature',[1,1]);
     end
 
+    % drawnow;
+
     % imagesc(polartocart(handles.dataset, handles.bscan_index, 14634));
+
+
+% --- Executes on button press in box_show_polar.
+function box_show_polar_Callback(hObject, eventdata, handles)
+% hObject    handle to box_show_polar (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hint: get(hObject,'Value') returns toggle state of box_show_polar
+
+
+% --- Executes on selection change in functions_popup.
+function functions_popup_Callback(hObject, eventdata, handles)
+% hObject    handle to functions_popup (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: contents = cellstr(get(hObject,'String')) returns functions_popup contents as cell array
+%        contents{get(hObject,'Value')} returns selected item from functions_popup
+contents = cellstr(get(hObject, 'String'));
+index = get(hObject, 'Value');
+display(index)
+for i = 1:(size(contents))
+    current = contents{i};
+    selection = strcat(current, '_parameters');
+    if i ~= index
+        set(handles.(selection), 'Visible', 'off');
+        display(strcat(current, '_parameters'))
+    else
+        set(handles.(selection), 'Visible', 'on');
+    end
+end
+
+
+% --- Executes during object creation, after setting all properties.
+function functions_popup_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to functions_popup (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: popupmenu controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+
+
+function angle_edit_Callback(hObject, eventdata, handles)
+% hObject    handle to angle_edit (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of angle_edit as text
+%        str2double(get(hObject,'String')) returns contents of angle_edit as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function angle_edit_CreateFcn(hObject, eventdata, handles)
+    % hObject    handle to angle_edit (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    empty - handles not created until after all CreateFcns called
+
+    % Hint: edit controls usually have a white background on Windows.
+    %       See ISPC and COMPUTER.
+    if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+        set(hObject,'BackgroundColor','white');
+    end
