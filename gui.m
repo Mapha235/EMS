@@ -60,8 +60,6 @@ function catheter_length_edit_Callback(hObject, eventdata, handles)
     if isnan(temp)
         outputMessage(hObject, handles, "Fehler: Parameter muss eine Zahl sein.", 0)
     end
-    % outputMessage(hObject, handles, sprintf("- \tKatheterposition \n \t geändert zu: %d",handles.parameters{1}), 0);
-    display(handles.parameters);
     guidata(hObject, handles);
 
 
@@ -83,7 +81,6 @@ function bscan_count_edit_Callback(hObject, eventdata, handles)
         [nrow ncol] = size(handles.dataset);
         set(handles.bscan_width_edit, 'String', int2str(floor(ncol / temp)));
     end
-    display(handles.parameters);
     guidata(hObject, handles);
     
 
@@ -107,7 +104,6 @@ function bscan_width_edit_Callback(hObject, eventdata, handles)
         set(handles.bscan_count_edit, 'String', int2str(floor(ncol / temp)));
         % set(handles.parameters{2}, (floor(ncol / handles.parameters{3})));
     end
-    display(handles.parameters);
     guidata(hObject, handles);
 
 
@@ -125,7 +121,6 @@ function select_file_ClickedCallback(hObject, eventdata, handles)
     if isa(file, 'char')
         clear handles.dataset;
         clear handles.bscan_count;
-        clear handles.bscan_index;
         clear handles.current_bscan;
         clear handles.parameters;
 
@@ -137,11 +132,12 @@ function select_file_ClickedCallback(hObject, eventdata, handles)
 
         full_file = strcat(path, file);
         % [path, name, ext] = fileparts(file);
-        % display(full_file)
         set(handles.plotpanel, 'Title', file);
 
         handles.dataset = parse(full_file, hObject, handles);
+        handles.bscan_index = 1;
         handles.bscan_count = numberofBScans(handles.dataset);
+
         [nrow, ncol] = size(handles.dataset);
 
         
@@ -169,6 +165,7 @@ function select_file_ClickedCallback(hObject, eventdata, handles)
         files = setFunctionPopupContent(pwd);
         set(handles.functions_popup, 'String', files);
         set(handles.bscan_nr_popup, 'String', content);
+        set(handles.bscan_nr_popup, 'Value', handles.bscan_index);
 
         periode = floor(ncol / handles.bscan_count);
 
@@ -225,8 +222,13 @@ function anwenden_options_Callback(hObject, eventdata, handles)
     handles.parameters{1} = str2double(get(handles.catheter_length_edit, 'String'));
     handles.parameters{2} = str2double(get(handles.bscan_count_edit, 'String'));
     handles.parameters{3} = str2double(get(handles.bscan_width_edit, 'String'));
-    handles.angle = str2double(get(handles.angle_edit, 'String'));
+    handles.angle = mod(str2double(get(handles.angle_edit, 'String')), 360);
     handles.bscan_count = floor(handles.parameters{2});
+
+    if handles.bscan_index > handles.bscan_count
+        handles.bscan_index = 1;
+    end
+    set(handles.bscan_nr_popup, 'Value', handles.bscan_index);
     
     
     content = setPopupContent(handles.bscan_count);
@@ -242,34 +244,33 @@ function anwenden_options_Callback(hObject, eventdata, handles)
     axes(handles.cartesian);
     % imagesc(polartocart(handles.dataset, handles.bscan_index, 14634));
     imagesc(polartocart(handles.current_bscan));
-    % display(handles.parameters);
     guidata(hObject, handles);
     update(hObject, eventdata, handles);
 
 
 % --- Executes on button press in decrement.
 function decrement_Callback(hObject, eventdata, handles)
-% handles.bscan_index = (handles.bscan_index - 1);
-% current_index = get(hObject, 'index');
-% current_index = current_index - 1;
-handles.bscan_index = handles.bscan_index - 1;
-if handles.bscan_index < 1
-    handles.bscan_index = handles.bscan_count;
-end
-update(hObject,eventdata,handles);
+    % handles.bscan_index = (handles.bscan_index - 1);
+    % current_index = get(hObject, 'index');
+    % current_index = current_index - 1;
+    handles.bscan_index = handles.bscan_index - 1;
+    if handles.bscan_index < 1
+        handles.bscan_index = handles.bscan_count;
+    end
+    update(hObject,eventdata,handles);
 
 
 
 % --- Executes on button press in increment.
 function increment_Callback(hObject, eventdata, handles)
-% current_index = get(hObject, 'index');
-% current_index = current_index + 1;
-% set(hObject, 'index', current_index);
-handles.bscan_index = handles.bscan_index + 1;
-if handles.bscan_index > handles.bscan_count
-    handles.bscan_index = 1;
-end
-update(hObject,eventdata,handles);
+    % current_index = get(hObject, 'index');
+    % current_index = current_index + 1;
+    % set(hObject, 'index', current_index);
+    handles.bscan_index = handles.bscan_index + 1;
+    if handles.bscan_index > handles.bscan_count
+        handles.bscan_index = 1;
+    end
+    update(hObject,eventdata,handles);
 
 
 % --- Executes during object creation, after setting all properties.
@@ -281,36 +282,33 @@ function cartesian_CreateFcn(hObject, eventdata, handles)
 % --- Executes on button press in checkbox7.
 function boxInnenwand_Callback(hObject, eventdata, handles)
 % Hint: get(hObject,'Value') returns toggle state of checkbox7
-if get(hObject, 'Value')
-    set(handles.boxKantenerkennung, 'Value', 1);
-    drawnow;
-    set(handles.boxKantenerkennung, 'Enable', 'off')
-    % set(handles.boxRauschen, 'Value', 1);
-    % drawnow;
-    % set(handles.boxRauschen, 'Enable', 'off')
-else
-    set(handles.boxKantenerkennung, 'Enable', 'on')
+    if get(hObject, 'Value')
+        set(handles.boxKantenerkennung, 'Value', 1);
+        drawnow;
+        set(handles.boxKantenerkennung, 'Enable', 'off')
+    else
+        set(handles.boxKantenerkennung, 'Enable', 'on')
 
-end
+    end
 
 
 % --- Executes on selection change in bscan_nr_popup.
 function bscan_nr_popup_Callback(hObject, eventdata, handles)
-% Hints: contents = cellstr(get(hObject,'String')) returns bscan_nr_popup contents as cell array
-%        contents{get(hObject,'Value')} returns selected item from bscan_nr_popup
+    % Hints: contents = cellstr(get(hObject,'String')) returns bscan_nr_popup contents as cell array
+    %        contents{get(hObject,'Value')} returns selected item from bscan_nr_popup
 
-contents = cellstr(get(hObject,'String'));
+    contents = cellstr(get(hObject,'String'));
 
-handles.bscan_index = str2num(contents{get(hObject,'Value')});
-update(hObject, eventdata, handles);
+    handles.bscan_index = str2num(contents{get(hObject,'Value')});
+    update(hObject, eventdata, handles);
 
 % --- Executes during object creation, after setting all properties.
 function bscan_nr_popup_CreateFcn(hObject, eventdata, handles)
-% Hint: popupmenu controls usually have a white background on Windows.
-%       See ISPC and COMPUTER.
-if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
-    set(hObject,'BackgroundColor','white');
-end
+    % Hint: popupmenu controls usually have a white background on Windows.
+    %       See ISPC and COMPUTER.
+    if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+        set(hObject,'BackgroundColor','white');
+    end
 
 function [] = set_executed(hObject, eventdata, handles)
     
@@ -340,10 +338,10 @@ function [] = set_executed(hObject, eventdata, handles)
 % --- Executes during object creation, after setting all properties.
 function plotpanel_CreateFcn(hObject, eventdata, handles)
 
-% --- If Enable == 'on', executes on mouse press in 5 pixel border.
-% --- Otherwise, executes on mouse press in 5 pixel border or over textGraustufen.
-function textGraustufen_ButtonDownFcn(hObject, eventdata, handles)
-set(handles.boxGraustufen, 'Value', ~get(handles.boxGraustufen, 'Value'));
+    % --- If Enable == 'on', executes on mouse press in 5 pixel border.
+    % --- Otherwise, executes on mouse press in 5 pixel border or over textGraustufen.
+    function textGraustufen_ButtonDownFcn(hObject, eventdata, handles)
+    set(handles.boxGraustufen, 'Value', ~get(handles.boxGraustufen, 'Value'));
 
 
 % --- Executes on button press in boxGraustufen.
@@ -360,7 +358,6 @@ function boxKantenerkennung_Callback(hObject, eventdata, handles)
 % --- Otherwise, executes on mouse press in 5 pixel border or over textKantenerkennung.
 function textKantenerkennung_ButtonDownFcn(hObject, eventdata, handles)
     value = ~get(handles.boxKantenerkennung, 'Value');
-    display(value);
     set(handles.boxKantenerkennung, 'value', value);
     boxKantenerkennung_Callback(hObject, eventdata, handles);
 
@@ -386,20 +383,20 @@ function progress_listbox_Callback(hObject, eventdata, handles)
 
 % --- Executes during object creation, after setting all properties.
 function progress_listbox_CreateFcn(hObject, eventdata, handles)
-% Hint: listbox controls usually have a white background on Windows.
-%       See ISPC and COMPUTER.
-if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
-    set(hObject,'BackgroundColor','white');
-end
+    % Hint: listbox controls usually have a white background on Windows.
+    %       See ISPC and COMPUTER.
+    if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+        set(hObject,'BackgroundColor','white');
+    end
 
 
 % --- Executes on button press in delete_history.
 function delete_history_Callback(hObject, eventdata, handles)
-% hObject    handle to delete_history (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-set(handles.progress_listbox, 'String', '');
-guidata(hObject, handles);
+    % hObject    handle to delete_history (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    structure with handles and user data (see GUIDATA)
+    set(handles.progress_listbox, 'String', '');
+    guidata(hObject, handles);
 
 
 
@@ -414,22 +411,18 @@ function threshold_edit_Callback(hObject, eventdata, handles)
 
 % --- Executes during object creation, after setting all properties.
 function threshold_edit_CreateFcn(hObject, eventdata, handles)
-% hObject    handle to threshold_edit (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    empty - handles not created until after all CreateFcns called
+    % hObject    handle to threshold_edit (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    empty - handles not created until after all CreateFcns called
 
-% Hint: edit controls usually have a white background on Windows.
-%       See ISPC and COMPUTER.
-if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
-    set(hObject,'BackgroundColor','white');
-end
+    % Hint: edit controls usually have a white background on Windows.
+    %       See ISPC and COMPUTER.
+    if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+        set(hObject,'BackgroundColor','white');
+    end
 
 function data = parse(file_path, hObject, handles)
     [path, name, ext] = fileparts(file_path);
-
-    % cla(handles.polar);
-    % cla(handles.cartesian);
-    % cla(handles.sideview);
 
     if strcmp(ext, '.mat')
         data = matfile(file_path);
@@ -463,15 +456,9 @@ function contents = setPopupContent(bscan_count)
         contents(i) = {temp_index};
     end
 
-function contents = setFunctionPopupContent(path)
-    % files = dir('algos/*.m');
-    % [fcts, temp] = size(files);
-    
+function contents = setFunctionPopupContent(path)   
     contents = [{}];
     contents{1} = 'Allgemein';
-    % for i = 1:fcts
-    %     contents{end+1} = files(i).name(1:end-2);
-    % end
     contents{2} = 'Kantenerkennung';
     contents{3} = 'Seitenansicht';
     
@@ -479,7 +466,6 @@ function update(hObject, eventdata, handles)
     % title = sprintf('B-Scan Nr. %d', handles.bscan_index);
     popup_index = get(handles.bscan_nr_popup, 'Value');
     
-    % Check if a new BScan has been selected
     
     set(handles.bscan_nr_popup, 'Value', handles.bscan_index);
     
@@ -512,6 +498,18 @@ function update(hObject, eventdata, handles)
     % imagesc(handles.all_cartesian{popup_index});
     handles.plots{2} = imagesc(polartocart(handles.current_bscan));
 
+    % begin--------------Nach der Präsentation hinzugefügt-----------------------------
+    hold on;
+    % Draw the cut
+    origin = [550 550];
+    x = 512 * cos((handles.angle*pi)/180);
+    x = x + 550;
+    y = 512 * sin((handles.angle*pi)/180);
+    y = y + 550;
+    plot([origin(1) x], [origin(2) y], 'r', 'LineWidth', 1);
+    plot([origin(1) origin(1)-x+550], [origin(2) origin(2)-y+550], 'r', 'LineWidth', 1);
+    % end--------------Nach der Präsentation hinzugefügt-----------------------------
+
     axes(handles.sideview);
     handles.plots{3} = imagesc(handles.longitudinal);
     hold on;
@@ -520,8 +518,10 @@ function update(hObject, eventdata, handles)
     rectangle('Position',[handles.bscan_index,(row*2)-150,0,150],'EdgeColor','r','Linewidth',3);
     hold off;
     outputMessage(hObject, handles, '', 1);
-
-
+    
+    % begin--------------Nach der Präsentation hinzugefügt-----------------------------
+    outputMessage(hObject, handles, sprintf("Winkel: %d°", handles.angle), 0);
+    % end--------------Nach der Präsentation hinzugefügt-----------------------------
 
     if get(handles.boxKantenerkennung, 'Value')
         axes(handles.polar);
@@ -572,38 +572,37 @@ function box_show_polar_Callback(hObject, eventdata, handles)
 
 % --- Executes on selection change in functions_popup.
 function functions_popup_Callback(hObject, eventdata, handles)
-% hObject    handle to functions_popup (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
+    % hObject    handle to functions_popup (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    structure with handles and user data (see GUIDATA)
 
-% Hints: contents = cellstr(get(hObject,'String')) returns functions_popup contents as cell array
-%        contents{get(hObject,'Value')} returns selected item from functions_popup
-contents = cellstr(get(hObject, 'String'));
-index = get(hObject, 'Value');
-display(index)
-for i = 1:(size(contents))
-    current = contents{i};
-    selection = strcat(current, '_parameters');
-    if i ~= index
-        set(handles.(selection), 'Visible', 'off');
-        display(strcat(current, '_parameters'))
-    else
-        set(handles.(selection), 'Visible', 'on');
+    % Hints: contents = cellstr(get(hObject,'String')) returns functions_popup contents as cell array
+    %        contents{get(hObject,'Value')} returns selected item from functions_popup
+    contents = cellstr(get(hObject, 'String'));
+    index = get(hObject, 'Value');
+    for i = 1:(size(contents))
+        current = contents{i};
+        selection = strcat(current, '_parameters');
+        if i ~= index
+            set(handles.(selection), 'Visible', 'off');
+    
+        else
+            set(handles.(selection), 'Visible', 'on');
+        end
     end
-end
 
 
 % --- Executes during object creation, after setting all properties.
 function functions_popup_CreateFcn(hObject, eventdata, handles)
-% hObject    handle to functions_popup (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    empty - handles not created until after all CreateFcns called
+    % hObject    handle to functions_popup (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    empty - handles not created until after all CreateFcns called
 
-% Hint: popupmenu controls usually have a white background on Windows.
-%       See ISPC and COMPUTER.
-if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
-    set(hObject,'BackgroundColor','white');
-end
+    % Hint: popupmenu controls usually have a white background on Windows.
+    %       See ISPC and COMPUTER.
+    if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+        set(hObject,'BackgroundColor','white');
+    end
 
 
 
